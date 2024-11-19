@@ -21,7 +21,7 @@
 ### Mixed List
 
 ```
-l(1, none, `cat)
+l[1, none, `cat]
 ```
 
 ### Series
@@ -50,10 +50,11 @@ l(1, none, `cat)
 
 ```
 // empty series, s(name)
-s("",`i8)
+`i8$s[]
 
 // non-empty series
-s("name", `bool, true, none, false)
+s[true, none, false]
+s[0i8, 1, 2]
 ```
 
 ### Dataframe
@@ -62,11 +63,11 @@ a collection of series
 
 ```
 // empty series
-d(s("series1", `i32), s("series2", `f32))
+d[series1: `i32$s[], series2: `f32$s[]]
 
 
 // non-empty series
-d(s("series1", `i32), s("series2", `f32, none, 2, 3.0))
+d[series1: `i32$s[], series2: `f32$s[none, 2, 3.0]]
 ```
 
 ### Matrix
@@ -75,22 +76,27 @@ a 2d float array
 
 ```
 // empty matrix
-m((), (), ())
+x[[], [], []]
 
 // non-empty matrix
-m((1, 2), (2, 3), (4, None))
+x[[1, 2], [2, 3], [4, None]]
 ```
 
-### Dictionary
+### Dictionary(Hashmap)
 
 ```
-// empty dictionary
+// empty map
 {}
 
-// non-empty dictionary
+// non-empty map
 {a:1, b:2, c:3}
-d(s(`cat, `a, `b, `c), l(1, none, true))
+m[[`a, `b, `c], [1, none, true]]
+m[]
 ```
+
+### Variable Name
+
+Not allow single char variable name `(ASCII_ALPHANUMERIC | CJK){2,}`
 
 ### Control Flow
 
@@ -120,10 +126,14 @@ fn(param1, param2){
 ### SQL
 
 ```
-from table [filter condition] [by series1, series2, ...] select series1, series2, ...;
-from table [filter condition] [by series1, series2, ...] update series1, series2, ...;
-from table filter condition delete all;
-from table [filter condition] delete series1, series2, ...;
+from table
+  [ filter {condition[,condition]}]
+  [ group {series1, series2, ...}]
+  [ select {series1, series2, ...}
+  | update {series1, series2, ...}
+  | delete {series1, series2, ...}]
+  [ sort {series1, series2, ...}]
+  [ take number]
 
 select(dataframe, (), (), ())
 update(dataframe, (), (), ())
@@ -148,4 +158,19 @@ var1(var2)
 ```
 var1 !var2 var3
 var2(var1, var3)
+```
+
+### Iteration
+
+#### Each
+
+```
+var1 each series1
+var1 each list1
+var1 each dataframe1
+
+// apply each for 1st param
+f2(var1) each var2
+// apply each for 2nd param
+f2(,var2) each var1
 ```

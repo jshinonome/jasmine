@@ -1,0 +1,18 @@
+[workspace.package]
+version = "0.0.1"
+edition = "2021"
+authors = ["Jo Shinonome <jo.shinonome@gmail.com>"]
+description = "jasmine"
+
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[profile.release]
+strip = true
+opt-level = 3
+codegen-units = 3
+
+[profile.release-lto]
+inherits = "release"
+lto = true

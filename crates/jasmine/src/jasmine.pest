@@ -1,0 +1,209 @@
+String = @{ "\"" ~ ("\\\"" | "\\r" | "\\n" | "\\t" | (!"\"" ~ ANY))* ~ "\"" }
+
+Enum = @{ "`" ~ ANY* }
+
+WHITESPACE = _{ " " | "\t" | NEWLINE }
+
+blockComment =  { ("/*" ~ (!"*/" ~ ANY)* ~ "*/") }
+lineComment  =  { "//" ~ (!"\n" ~ ANY)* }
+COMMENT      = ${ blockComment | lineComment }
+
+Exp = {
+    SqlExp
+  | IfExp
+  | WhileExp
+  | TryExp
+  | AssignmentExp
+  | BinaryExp
+  | UnaryExp
+  | Handle
+  | FnCall
+  | BracketExp
+  | Term
+  | Fn
+}
+
+Statements = _{ ((Exp | ReturnExp | RaiseExp) ~ (";" ~ (Exp | ReturnExp | RaiseExp))*)? ~ ";"? }
+
+ControlKeyword = { "if" | "exit" | "while" | "try" | "catch" | "return" | "raise" }
+
+IfExp = { "if" | "(" ~ Exp ~ ")" ~ "{" ~ Statements ~ "}" }
+
+WhileExp = { "while" | "(" ~ Exp ~ ")" ~ "{" ~ Statements ~ "}" }
+
+TryExp = { "try" ~ "{" ~ Statements ~ "}" ~ "catch" ~ "{" ~ Statements ~ "}" }
+
+BracketExp = { "(" ~ Exp ~ ")" }
+
+// BinaryOp for functional query
+ListItem = _{ Exp | BinaryOp }
+List     =  { "l(" ~ ((ListItem) ~ (";" ~ ListItem)*)? ~ ")" }
+
+ReturnExp = { "return" ~ Exp }
+RaiseExp  = { "raise" ~ Exp }
+
+UnaryOperand = _{
+    Dataframe
+  | Matrix
+  | Dict
+  | Series
+  | List
+  | Handle
+  | Id
+  | GlobalId
+  | FnCall
+  | Fn
+  | BracketExp
+}
+
+Handle = { "h" ~ "[" ~ Exp ~ "]" }
+
+UnaryExp = { UnaryOperand ~ Exp }
+
+BinaryOperand = _{
+    Term
+  | FnCall
+  | Fn
+  | BracketExp
+}
+
+BinaryExp = { BinaryOperand ~ Binary ~ Exp }
+
+Tuple = { "(" ~ ((Id | GlobalId | Skip) ~ ",")* ~ (Id | GlobalId | Skip) ~ ")" }
+
+AssignmentExp = { (FnCall | Id | GlobalId | Tuple) ~ "=" ~ Exp }
+
+Term = _{
+    Dataframe
+  | Matrix
+  | Dict
+  | Series
+  | List
+  | Handle
+  | String
+  | Enum
+  | Timestamp
+  | Datetime
+  | Duration
+  | Date
+  | Time
+  | Boolean
+  | None
+  | Decimal
+  | Integer
+  | Id
+  | GlobalId
+}
+
+// functions with 2 parameters
+BinaryOp = _{
+    "!=="
+  | "!="
+  | "<="
+  | ">="
+  | ">"
+  | "<"
+  | "===" // strict equality
+
+  | "==" // equality
+
+  | "!"
+  | "@"
+  | ".." // range
+
+  | "$"
+  | "?"
+  | "++" // concate list
+
+  | "+"
+  | "-"
+  | "*"
+  | "**"
+  | "/"
+  | "%"
+  | "|"
+  | "&"
+  | "#"
+  | "^"
+}
+
+Binary = _{
+    BinaryOp
+  | BinaryId
+}
+
+BinaryId = @{ "~" ~ (Id | GlobalId) }
+
+// <--SQL
+SqlKeyword = { "select" | "update" | "delete" | "by" | "from" | "filter" }
+
+SqlOpExp = _{
+    UnarySqlExp
+  | BinarySqlExp
+  | FnCall
+  | BracketSqlExp
+  | Term
+}
+
+UnarySqlExp   =  { (Id | GlobalId) ~ SqlOpExp }
+BinarySqlExp  =  { BinaryOperand ~ (BinaryOp | BinaryId | "over") ~ SqlOpExp }
+BracketSqlExp =  { "(" ~ SqlOpExp ~ ")" }
+SeriesName    = @{ Id }
+SeriesNames   =  { SeriesName ~ ("," ~ SeriesName)* ~ ","? }
+RenameColExp  =  { SeriesName ~ "=" ~ (SqlOpExp | BracketSqlExp) }
+SeriesExp     =  { RenameColExp | SqlOpExp | BracketSqlExp }
+SeriesExps    =  { SeriesExp ~ ("," ~ SeriesExp)* ~ ","? }
+FromExp       =  { "from" ~ (Id | GlobalId | BracketExp | FnCall) }
+GroupExp      =  { "group" ~ "{" ~ SeriesExps ~ "}" }
+FilterExp     =  { "filter" ~ "{" ~ SqlOpExp ~ ("," ~ SqlOpExp)* ~ ","? ~ "}" }
+SelectOp      =  { "select" ~ "{" ~ SeriesExps ~ "}" }
+UpdateOp      =  { "update" ~ "{" ~ SeriesExps ~ "}" }
+DeleteOp      =  { "delete" ~ "{" ~ SeriesNames ~ "}" }
+SortOp        =  { "sort" ~ "{" ~ SeriesNames ~ "}" }
+TakeOp        =  { "take" ~ Exp }
+SqlExp        =  { FromExp ~ FilterExp? ~ GroupExp? ~ (SelectOp | UpdateOp | DeleteOp)? ~ SortOp? ~ TakeOp? }
+
+// -->SQL
+
+Dataframe = { "d" ~ "[" ~ SeriesExp ~ ("," ~ SeriesExp)* ~ "]" }
+
+Row    = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ "]" }
+Matrix = { "x[" ~ Row* ~ "]" }
+
+KeyValueExp = { Id ~ ":" ~ Exp }
+Keys        = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ "]" }
+Values      = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ "]" }
+Dict        = {
+    ("m" ~ "[" ~ (Keys ~ "," ~ Values)? ~ "]")
+  | ("{" ~ (KeyValueExp ~ ("," ~ KeyValueExp)*)? ~ "}")
+}
+
+Params  = { "[" ~ (Id ~ ";")* ~ Id? ~ "]" }
+NullExp = { "" }
+Fn      = { "{" ~ Params ~ ((Exp | ReturnExp | RaiseExp) ~ ";")* ~ (Exp | ReturnExp | RaiseExp | NullExp) ~ "}" }
+
+Skip   = { "" }
+Arg    = { Exp | Skip }
+FnCall = { (GlobalId | Fn | BinaryId | Id | Dict | Dataframe | List | BracketExp | Handle) ~ "(" ~ (Arg ~ ("," ~ Arg)*)? ~ ")" }
+
+Date      = @{ ASCII_DIGIT{4} ~ "-" ~ ASCII_DIGIT{2} ~ "-" ~ ASCII_DIGIT{2} }
+Time      = @{ ASCII_DIGIT{2} ~ ":" ~ ASCII_DIGIT{2} ~ ":" ~ ASCII_DIGIT{2} ~ ("." ~ ASCII_DIGIT{,9})? }
+Datetime  = @{ Date ~ "T" ~ Time? }
+Timestamp = @{ Date ~ "D" ~ Time? }
+Duration  = @{ (Integer ~ "D" ~ Time?) | (Integer ~ ("ns" | "s" | "m" | "h")) }
+Integer   = @{ "-"? ~ ASCII_DIGIT+ }
+Decimal   = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* }
+Boolean   =  { ("true" | "false") }
+None      =  { "none" }
+Unknown   =  { ANY* }
+
+Series = { "s" ~ "[" ~ (Unknown ~ ("," ~ Unknown)+)? ~ "]" }
+
+CJK        =  { HAN | HIRAGANA | KATAKANA | HANGUL | BOPOMOFO }
+Identifier =  { (ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+) | (CJK ~ (ASCII_ALPHANUMERIC | CJK)+) }
+Keyword    =  { SqlKeyword | ControlKeyword }
+Id         = @{ (!Keyword ~ Identifier) | (Keyword ~ (ASCII_ALPHANUMERIC | "_")+) }
+GlobalId   = @{ Identifier ~ ("." ~ Identifier)* }
+
+Statement = _{ Exp }
+Program   = _{ SOI ~ (Statement ~ (";" ~ Statement)*)? ~ EOI }
