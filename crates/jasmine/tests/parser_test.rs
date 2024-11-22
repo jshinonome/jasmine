@@ -223,7 +223,7 @@ fn parse_case02() {
 #[test]
 fn parse_case02_01() {
     let code = "
-    from df filter {col!=1};
+    from df filter {col!=1} sort {col1, -col2} take 10;
     from df delete {col1, col2, col3};
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
@@ -243,6 +243,10 @@ fn parse_case02_01() {
             "       -> Id",
             "       -> BinaryOp",
             "       -> Integer",
+            "   -> SortOp",
+            "     -> SortName",
+            "     -> SortName",
+            "   -> TakeOp -> Exp -> Integer",
             "Exp -> SqlExp",
             "   -> FromExp -> Id",
             "   -> DeleteOp",
@@ -296,12 +300,12 @@ fn parse_case03() {
             "           -> Exp -> Id",
             "Exp -> AssignmentExp",
             "   -> Id",
-            "   -> Exp -> UnaryExp",
-            "       -> Id",
-            "       -> Exp -> BracketExp -> Exp -> List",
-            "               -> Exp -> Enum",
-            "               -> Exp -> Integer",
-            "               -> Exp -> Integer",
+            "   -> Exp -> FnCall",
+            "       -> GlobalId",
+            "       -> Arg -> Exp -> List",
+            "             -> Exp -> Enum",
+            "             -> Exp -> Integer",
+            "             -> Exp -> Integer",
             "Exp -> AssignmentExp",
             "   -> Id",
             "   -> Exp -> FnCall",
@@ -382,21 +386,21 @@ fn parse_case04() {
             "   -> Exp -> Integer",
             "Exp -> AssignmentExp",
             "   -> Id",
+            "   -> Exp -> FnCall",
+            "       -> GlobalId",
+            "       -> Arg -> Exp -> Enum",
+            "Exp -> BinaryExp",
+            "   -> FnCall",
+            "     -> GlobalId",
+            "     -> Arg -> Exp -> Enum",
+            "   -> BinaryOp",
             "   -> Exp -> UnaryExp",
             "       -> Id",
-            "       -> Exp -> BracketExp -> Exp -> Enum",
-            "Exp -> UnaryExp",
-            "   -> Id",
-            "   -> Exp -> BinaryExp",
-            "       -> BracketExp -> Exp -> Enum",
-            "       -> BinaryOp",
-            "       -> Exp -> UnaryExp",
-            "           -> Id",
-            "           -> Exp -> UnaryExp",
-            "               -> Id",
-            "               -> Exp -> BracketExp -> Exp -> Series",
-            "                       -> Unknown",
-            "                       -> Unknown",
+            "       -> Exp -> FnCall",
+            "           -> GlobalId",
+            "           -> Arg -> Exp -> Series",
+            "                 -> Unknown",
+            "                 -> Unknown",
             "EOI",
             ""
         ],
@@ -431,30 +435,27 @@ fn parse_case05() {
         vec![
             "Exp -> AssignmentExp",
             "   -> Id",
-            "   -> Exp -> UnaryExp",
-            "       -> Id",
-            "       -> Exp -> WhileExp",
-            "           -> ConditionExp -> Id",
+            "   -> Exp -> Fn",
+            "       -> Params -> Id",
+            "       -> Exp -> IfExp",
+            "           -> ConditionExp -> BinaryExp",
+            "               -> Id",
+            "               -> BinaryOp",
+            "               -> Exp -> Date",
             "           -> Statements",
-            "             -> Exp -> IfExp",
-            "                 -> ConditionExp -> BinaryExp",
+            "             -> Exp -> UnaryExp",
+            "                 -> GlobalId",
+            "                 -> Exp -> Id",
+            "             -> Exp -> UnaryExp",
+            "                 -> GlobalId",
+            "                 -> Exp -> Id",
+            "             -> Exp -> AssignmentExp",
+            "                 -> Id",
+            "                 -> Exp -> BinaryExp",
             "                     -> Id",
             "                     -> BinaryOp",
-            "                     -> Exp -> Date",
-            "                 -> Statements",
-            "                   -> Exp -> UnaryExp",
-            "                       -> GlobalId",
-            "                       -> Exp -> Id",
-            "                   -> Exp -> UnaryExp",
-            "                       -> GlobalId",
-            "                       -> Exp -> Id",
-            "                   -> Exp -> AssignmentExp",
-            "                       -> Id",
-            "                       -> Exp -> BinaryExp",
-            "                           -> Id",
-            "                           -> BinaryOp",
-            "                           -> Exp -> Integer",
-            "             -> Exp -> Date",
+            "                     -> Exp -> Integer",
+            "       -> Exp -> Date",
             "Exp -> AssignmentExp",
             "   -> Id",
             "   -> Exp -> UnaryExp",
@@ -475,7 +476,7 @@ fn parse_case05() {
 #[test]
 fn parse_case06() {
     let code = "
-    10 {[x]x, sum -2#x}/ 1 1
+    nest(fn(x){x++sum -2#x}, s[1,1], 10)
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
         Ok(p) => p,
@@ -488,21 +489,23 @@ fn parse_case06() {
     let actual: Vec<&str> = binding.split("\n").collect();
     assert_eq!(
         vec![
-            "Exp -> BinaryIteratorExp",
-            "   -> I64",
-            "   -> Fn",
-            "     -> Params -> Id",
-            "     -> Exp -> BinaryExp",
-            "         -> Id",
-            "         -> BinaryOp",
-            "         -> Exp -> UnaryExp",
-            "             -> UnaryKeyword",
-            "             -> Exp -> BinaryExp",
-            "                 -> I64",
-            "                 -> BinaryOp",
-            "                 -> Exp -> Id",
-            "   -> Iterator",
-            "   -> Exp -> I64s",
+            "Exp -> FnCall",
+            "   -> GlobalId",
+            "   -> Arg -> Exp -> Fn",
+            "         -> Params -> Id",
+            "         -> Exp -> BinaryExp",
+            "             -> Id",
+            "             -> BinaryOp",
+            "             -> Exp -> UnaryExp",
+            "                 -> Id",
+            "                 -> Exp -> BinaryExp",
+            "                     -> Integer",
+            "                     -> BinaryOp",
+            "                     -> Exp -> Id",
+            "   -> Arg -> Exp -> Series",
+            "         -> Unknown",
+            "         -> Unknown",
+            "   -> Arg -> Exp -> Integer",
             "EOI",
             ""
         ],
@@ -514,9 +517,9 @@ fn parse_case06() {
 fn parse_case07() {
     let code = "
     try {
-        a: 1 + `a;
-    } catch {
-        err ~ \"type\";
+        a = 1 + `a`;
+    } catch(err) {
+        err == \"type\";
     }
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
@@ -531,16 +534,17 @@ fn parse_case07() {
     assert_eq!(
         vec![
             "Exp -> TryExp",
-            "   -> Exp -> AssignmentExp",
-            "       -> Id",
-            "       -> Exp -> BinaryExp",
-            "           -> I64",
-            "           -> BinaryOp",
-            "           -> Exp -> Sym",
-            "   -> Exp -> BinaryExp",
-            "       -> Id",
-            "       -> BinaryOp",
-            "       -> Exp -> String",
+            "   -> Statements -> Exp -> AssignmentExp",
+            "         -> Id",
+            "         -> Exp -> BinaryExp",
+            "             -> Integer",
+            "             -> BinaryOp",
+            "             -> Exp -> Enum",
+            "   -> Id",
+            "   -> Statements -> Exp -> BinaryExp",
+            "         -> Id",
+            "         -> BinaryOp",
+            "         -> Exp -> String",
             "EOI",
             ""
         ],
