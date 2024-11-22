@@ -6,71 +6,14 @@ pub enum JError {
     #[error("{0}")]
     Err(String),
 
-    #[error("Eval Err: {0}")]
-    EvalErr(String),
-
-    #[error("Err: {0}")]
-    RaiseErr(String),
-
-    #[error("Invalid Handle err")]
-    InvalidHandleErr(),
-
     #[error("Parser err: {0}")]
     ParserErr(String),
 
     #[error("Failed to refer {0} from {1}")]
     MismatchedTypeErr(String, String),
 
-    #[error("Unsupported unary op '{0}' for '{1}'")]
-    UnsupportedUnaryOpErr(String, String),
-
-    #[error("Unsupported binary op '{0}' between '{1}' and '{2}'")]
-    UnsupportedBinaryOpErr(String, String, String),
-
-    #[error("Unsupported sql J type '{0}'")]
-    UnsupportedSqlJTypeErr(String),
-
-    #[error("Unsupported sql unary op '{0}'")]
-    UnsupportedSqlUnaryOpErr(String),
-
-    #[error("Unsupported sql binary op '{0}'")]
-    UnsupportedSqlBinaryOpErr(String),
-
-    #[error("Not serializable '{0}'")]
-    NotSerializableErr(String),
-
-    #[error("Not series")]
-    NotSeriesErr(),
-
-    #[error("Not yet implemented '{0}'")]
-    NotYetImplemented(String),
-
-    #[error("Expect {0} argument(s), {1} given")]
-    MismatchedArgNumErr(usize, usize),
-
-    #[error("Expect {0} argument(s) function, {1} argument(s) function given")]
-    MismatchedArgNumFnErr(usize, usize),
-
-    #[error("Expect '{0}' for '{1}' argument , got '{2}'")]
-    MismatchedArgTypeErr(String, usize, String),
-
-    #[error("Name '{0}' is not defined")]
-    NameErr(String),
-
     #[error("Length error '{0}' vs '{1}'")]
     MismatchedLengthErr(usize, usize),
-
-    #[error("Forbidden '{0}' keyword")]
-    ForbiddenKeywordErr(String),
-
-    #[error("OS Err: '{0}'")]
-    OsErr(String),
-
-    #[error("Failed to read lock '{0}'")]
-    ReadLockErr(String),
-
-    #[error("Failed to write lock '{0}'")]
-    WriteLockErr(String),
 }
 
 pub type JResult<J> = Result<J, JError>;
