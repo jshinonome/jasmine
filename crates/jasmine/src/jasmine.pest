@@ -1,6 +1,6 @@
 String = @{ "\"" ~ ("\\\"" | "\\r" | "\\n" | "\\t" | (!"\"" ~ ANY))* ~ "\"" }
 
-Enum = @{ "`" ~ ANY* }
+Enum = @{ "`" ~ (!"`" ~ ANY)* ~ "`" }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 
@@ -17,27 +17,36 @@ Exp = {
   | BinaryExp
   | UnaryExp
   | Handle
+  | Fn
   | FnCall
   | BracketExp
   | Term
-  | Fn
 }
 
-Statements = _{ ((Exp | ReturnExp | RaiseExp) ~ (";" ~ (Exp | ReturnExp | RaiseExp))*)? ~ ";"? }
+Statements = { ((Exp | ReturnExp | RaiseExp) ~ ";")* ~ (Exp | ReturnExp | RaiseExp)? }
 
 ControlKeyword = { "if" | "exit" | "while" | "try" | "catch" | "return" | "raise" }
 
-IfExp = { "if" | "(" ~ Exp ~ ")" ~ "{" ~ Statements ~ "}" }
+ConditionExp = {
+    SqlExp
+  | AssignmentExp
+  | BinaryExp
+  | UnaryExp
+  | FnCall
+  | Term
+}
 
-WhileExp = { "while" | "(" ~ Exp ~ ")" ~ "{" ~ Statements ~ "}" }
+IfExp = { "if" ~ "(" ~ ConditionExp ~ ")" ~ "{" ~ Statements ~ "}" }
 
-TryExp = { "try" ~ "{" ~ Statements ~ "}" ~ "catch" ~ "{" ~ Statements ~ "}" }
+WhileExp = { "while" | "(" ~ ConditionExp ~ ")" ~ "{" ~ Statements ~ "}" }
+
+TryExp = { "try" ~ "{" ~ Statements ~ "}" ~ "catch" ~ "(" ~ Id ~ ")" ~ "{" ~ Statements ~ "}" }
 
 BracketExp = { "(" ~ Exp ~ ")" }
 
 // BinaryOp for functional query
 ListItem = _{ Exp | BinaryOp }
-List     =  { "l(" ~ ((ListItem) ~ (";" ~ ListItem)*)? ~ ")" }
+List     =  { "l[" ~ (ListItem ~ ",")* ~ ListItem? ~ "]" }
 
 ReturnExp = { "return" ~ Exp }
 RaiseExp  = { "raise" ~ Exp }
@@ -51,8 +60,8 @@ UnaryOperand = _{
   | Handle
   | Id
   | GlobalId
-  | FnCall
   | Fn
+  | FnCall
   | BracketExp
 }
 
@@ -96,7 +105,7 @@ Term = _{
 }
 
 // functions with 2 parameters
-BinaryOp = _{
+BinaryOp = {
     "!=="
   | "!="
   | "<="
@@ -117,8 +126,8 @@ BinaryOp = _{
 
   | "+"
   | "-"
-  | "*"
   | "**"
+  | "*"
   | "/"
   | "%"
   | "|"
@@ -138,49 +147,50 @@ BinaryId = @{ "~" ~ (Id | GlobalId) }
 SqlKeyword = { "select" | "update" | "delete" | "by" | "from" | "filter" }
 
 SqlOpExp = _{
-    UnarySqlExp
-  | BinarySqlExp
+    BinarySqlExp
+  | UnarySqlExp
   | FnCall
   | BracketSqlExp
   | Term
 }
 
-UnarySqlExp   =  { (Id | GlobalId) ~ SqlOpExp }
-BinarySqlExp  =  { BinaryOperand ~ (BinaryOp | BinaryId | "over") ~ SqlOpExp }
-BracketSqlExp =  { "(" ~ SqlOpExp ~ ")" }
-SeriesName    = @{ Id }
-SeriesNames   =  { SeriesName ~ ("," ~ SeriesName)* ~ ","? }
-RenameColExp  =  { SeriesName ~ "=" ~ (SqlOpExp | BracketSqlExp) }
-SeriesExp     =  { RenameColExp | SqlOpExp | BracketSqlExp }
-SeriesExps    =  { SeriesExp ~ ("," ~ SeriesExp)* ~ ","? }
-FromExp       =  { "from" ~ (Id | GlobalId | BracketExp | FnCall) }
-GroupExp      =  { "group" ~ "{" ~ SeriesExps ~ "}" }
-FilterExp     =  { "filter" ~ "{" ~ SqlOpExp ~ ("," ~ SqlOpExp)* ~ ","? ~ "}" }
-SelectOp      =  { "select" ~ "{" ~ SeriesExps ~ "}" }
-UpdateOp      =  { "update" ~ "{" ~ SeriesExps ~ "}" }
-DeleteOp      =  { "delete" ~ "{" ~ SeriesNames ~ "}" }
-SortOp        =  { "sort" ~ "{" ~ SeriesNames ~ "}" }
-TakeOp        =  { "take" ~ Exp }
-SqlExp        =  { FromExp ~ FilterExp? ~ GroupExp? ~ (SelectOp | UpdateOp | DeleteOp)? ~ SortOp? ~ TakeOp? }
+UnarySqlExp     =  { (Id | GlobalId) ~ SqlOpExp }
+BinarySqlExp    =  { BinaryOperand ~ (BinaryOp | BinaryId | "over") ~ SqlOpExp }
+BracketSqlExp   =  { "(" ~ SqlOpExp ~ ")" }
+SeriesName      = @{ Id }
+SeriesNames     = _{ (SeriesName ~ ",")* ~ SeriesName? }
+RenameSeriesExp =  { SeriesName ~ "=" ~ (SqlOpExp | BracketSqlExp) }
+SeriesExp       =  { RenameSeriesExp | SqlOpExp | BracketSqlExp }
+SeriesExps      = _{ (SeriesExp ~ ",")* ~ SeriesExp? }
+FromExp         =  { "from" ~ (Id | GlobalId | BracketExp | FnCall) }
+GroupExp        =  { "group" ~ "{" ~ SeriesExps ~ "}" }
+FilterExp       =  { "filter" ~ "{" ~ (SqlOpExp ~ ",")* ~ SqlOpExp? ~ "}" }
+SelectOp        =  { "select" ~ "{" ~ SeriesExps ~ "}" }
+UpdateOp        =  { "update" ~ "{" ~ SeriesExps ~ "}" }
+DeleteOp        =  { "delete" ~ "{" ~ SeriesNames ~ "}" }
+SortName        = @{ "-"? ~ SeriesName }
+SortNames       = _{ SortName ~ ("," ~ SortName)* ~ ","? }
+SortOp          =  { "sort" ~ "{" ~ SortNames ~ "}" }
+TakeOp          =  { "take" ~ Exp }
+SqlExp          =  { FromExp ~ FilterExp? ~ GroupExp? ~ (SelectOp | UpdateOp | DeleteOp)? ~ SortOp? ~ TakeOp? }
 
 // -->SQL
 
-Dataframe = { "d" ~ "[" ~ SeriesExp ~ ("," ~ SeriesExp)* ~ "]" }
+Dataframe = { "d" ~ "[" ~ SeriesExp ~ ("," ~ SeriesExp)* ~ ","? ~ "]" }
 
-Row    = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ "]" }
+Row    = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ ","? ~ "]" }
 Matrix = { "x[" ~ Row* ~ "]" }
 
 KeyValueExp = { Id ~ ":" ~ Exp }
-Keys        = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ "]" }
-Values      = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ "]" }
+Keys        = { "[" ~ (Exp ~ ",")* ~ Exp? ~ "]" }
+Values      = { "[" ~ (Exp ~ ",")* ~ Exp? ~ "]" }
 Dict        = {
     ("m" ~ "[" ~ (Keys ~ "," ~ Values)? ~ "]")
-  | ("{" ~ (KeyValueExp ~ ("," ~ KeyValueExp)*)? ~ "}")
+  | ("{" ~ (KeyValueExp ~ ",")* ~ KeyValueExp? ~ "}")
 }
 
-Params  = { "[" ~ (Id ~ ";")* ~ Id? ~ "]" }
-NullExp = { "" }
-Fn      = { "{" ~ Params ~ ((Exp | ReturnExp | RaiseExp) ~ ";")* ~ (Exp | ReturnExp | RaiseExp | NullExp) ~ "}" }
+Params = { "(" ~ (Id ~ ",")* ~ Id? ~ ")" }
+Fn     = { "fn" ~ Params ~ "{" ~ ((Exp | ReturnExp | RaiseExp) ~ ";")* ~ (Exp | ReturnExp | RaiseExp)? ~ "}" }
 
 Skip   = { "" }
 Arg    = { Exp | Skip }
@@ -195,15 +205,15 @@ Integer   = @{ "-"? ~ ASCII_DIGIT+ }
 Decimal   = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* }
 Boolean   =  { ("true" | "false") }
 None      =  { "none" }
-Unknown   =  { ANY* }
+Unknown   =  { (!("," | "]") ~ ANY)* }
 
-Series = { "s" ~ "[" ~ (Unknown ~ ("," ~ Unknown)+)? ~ "]" }
+Series = { "s" ~ "[" ~ (Unknown ~ ",")* ~ Unknown? ~ "]" }
 
 CJK        =  { HAN | HIRAGANA | KATAKANA | HANGUL | BOPOMOFO }
-Identifier =  { (ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")+) | (CJK ~ (ASCII_ALPHANUMERIC | CJK)+) }
+Identifier = @{ (ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*) | (CJK ~ (ASCII_ALPHANUMERIC | CJK)*) }
 Keyword    =  { SqlKeyword | ControlKeyword }
 Id         = @{ (!Keyword ~ Identifier) | (Keyword ~ (ASCII_ALPHANUMERIC | "_")+) }
 GlobalId   = @{ Identifier ~ ("." ~ Identifier)* }
 
-Statement = _{ Exp }
-Program   = _{ SOI ~ (Statement ~ (";" ~ Statement)*)? ~ EOI }
+Statement = _{ Exp | "" }
+Program   = _{ SOI ~ (Statement ~ ";")* ~ Statement? ~ EOI }

@@ -1,6 +1,10 @@
 use indexmap::IndexMap;
 use ndarray::ArcArray2;
-use polars::{frame::DataFrame, series::Series};
+use polars::{
+    frame::DataFrame,
+    prelude::{CategoricalOrdering, DataType, NamedFrom, TimeUnit},
+    series::Series,
+};
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum J {
@@ -26,4 +30,79 @@ pub enum J {
     DataFrame(DataFrame),      // 92 -> Arrow IPC
 
     Err(String), // 128 => string
+}
+
+impl J {
+    pub fn into_series(&self) -> Result<Series, String> {
+        match self {
+            J::Boolean(s) => Ok(Series::new("".into(), vec![*s])),
+            J::I64(s) => Ok(Series::new("".into(), vec![*s])),
+            J::F64(s) => Ok(Series::new("".into(), vec![*s])),
+            J::Date(s) => Ok(Series::new("".into(), vec![*s])
+                .cast(&DataType::Date)
+                .unwrap()),
+            J::Timestamp(s) => Ok(Series::new("".into(), vec![*s])
+                .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))
+                .unwrap()),
+            J::Datetime(s) => Ok(Series::new("".into(), vec![*s])
+                .cast(&DataType::Datetime(TimeUnit::Milliseconds, None))
+                .unwrap()),
+            J::Time(s) => Ok(Series::new("".into(), vec![*s])
+                .cast(&DataType::Time)
+                .unwrap()),
+            J::Duration(s) => Ok(Series::new("".into(), vec![*s])
+                .cast(&DataType::Duration(TimeUnit::Nanoseconds))
+                .unwrap()),
+            J::Symbol(s) => Ok(Series::new("".into(), vec![s.to_owned()])
+                .cast(&DataType::Categorical(None, CategoricalOrdering::Lexical))
+                .unwrap()),
+            J::String(s) => Ok(Series::new("".into(), vec![s.to_owned()])),
+            J::None => Ok(Series::new_null("".into(), 1)),
+            _ => Err("cannot turn into a series".to_owned()),
+        }
+    }
+
+    pub fn series(&self) -> Result<Series, String> {
+        match self {
+            J::Series(s) => Ok(s.clone()),
+            _ => Err("not a series".to_owned()),
+        }
+    }
+
+    pub fn is_numeric(&self) -> bool {
+        match self {
+            J::I64(_) | J::F64(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_bool(&self) -> bool {
+        match self {
+            J::Boolean(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_type_name(&self) -> String {
+        match self {
+            J::Boolean(_) => "bool".to_owned(),
+            J::I64(_) => "i64".to_owned(),
+            J::F64(_) => "f64".to_owned(),
+            J::Date(_) => "date".to_owned(),
+            J::Timestamp(_) => "timestamp".to_owned(),
+            J::Datetime(_) => "datetime".to_owned(),
+            J::Time(_) => "time".to_owned(),
+            J::Duration(_) => "duration".to_owned(),
+            J::Symbol(_) => "sym".to_owned(),
+            J::String(_) => "str".to_owned(),
+
+            J::MixedList(_) => "list".to_owned(),
+            J::Series(_) => "series".to_owned(),
+            J::Matrix(_) => "matrix".to_owned(),
+            J::Dict(_) => "dict".to_owned(),
+            J::DataFrame(_) => "df".to_owned(),
+            J::Err(_) => "err".to_owned(),
+            J::None => "none".to_owned(),
+        }
+    }
 }

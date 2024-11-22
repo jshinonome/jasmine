@@ -19,5 +19,6 @@ polars = { version = "0.44.2", features = [
   "dtype-i8",
   "dtype-i16",
   "dtype-categorical",
+  "ndarray",
 ] }
 regex = "1.11.1"

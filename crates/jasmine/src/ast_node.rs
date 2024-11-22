@@ -71,10 +71,13 @@ pub enum AstNode {
         exp: Box<AstNode>,
     },
     Sql {
-        op_exp: Vec<AstNode>,
-        group_exp: Vec<AstNode>,
+        op: String,
         from_exp: Box<AstNode>,
         filter_exp: Vec<AstNode>,
+        group_exp: Vec<AstNode>,
+        op_exp: Vec<AstNode>,
+        sort_exp: Vec<AstNode>,
+        take_exp: Option<Box<AstNode>>,
     },
     Skip,
 }

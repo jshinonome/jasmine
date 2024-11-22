@@ -12,12 +12,12 @@ use polars::datatypes::{CategoricalOrdering, DataType as PolarsDataType, Float64
 use polars::frame::DataFrame;
 use polars::prelude::{Column, IndexOrder, NamedFrom};
 use polars::series::Series;
+use regex::bytes::Regex;
 use regex::RegexSet;
 
 const UNIX_EPOCH_DAY: i32 = 719_163;
 
 pub const NS_IN_DAY: i64 = 86_400_000_000_000;
-pub const NS_IN_MS: i64 = 1_000_000;
 
 #[derive(Parser)]
 #[grammar = "jasmine.pest"]
@@ -135,7 +135,6 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             })
         }
         Rule::FnCall => {
-            let span = pair.as_span().start();
             let mut pairs = pair.into_inner();
             let f = parse_exp(pairs.next().unwrap(), source_id)?;
             let mut args = Vec::with_capacity(pairs.len() - 1);
@@ -210,7 +209,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 let name: String;
                 let exp: AstNode;
                 let node = col_exp.into_inner().next().unwrap();
-                if node.as_rule() == Rule::RenameColExp {
+                if node.as_rule() == Rule::RenameSeriesExp {
                     let mut nodes = node.into_inner();
                     name = nodes.next().unwrap().as_str().to_owned();
                     exp = parse_exp(nodes.next().unwrap(), source_id)?;
@@ -229,7 +228,12 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                         s.rename(name.into());
                         col_exps.push(AstNode::J(J::Series(s)));
                     }
-                } else if let AstNode::Id(name) = &exp {
+                } else if let AstNode::Id {
+                    id: name,
+                    pos: _,
+                    source_id: _,
+                } = &exp
+                {
                     col_exps.push(AstNode::SeriesExp {
                         name: name.to_owned(),
                         exp: Box::new(exp),
@@ -259,10 +263,10 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         }
         Rule::Matrix => {
             let span = pair.as_span();
-            let cols = pair.into_inner();
-            let mut exps: Vec<AstNode> = Vec::with_capacity(cols.len());
+            let rows = pair.into_inner();
+            let mut exps: Vec<AstNode> = Vec::with_capacity(rows.len());
             let mut all_series = true;
-            for (i, col_exp) in cols.enumerate() {
+            for (i, col_exp) in rows.enumerate() {
                 let col_name: String;
                 let exp: AstNode;
                 let node = col_exp.into_inner().next().unwrap();
@@ -274,7 +278,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                     if let J::Series(mut s) = j {
                         if !(s.dtype().is_numeric() || s.dtype().is_bool()) {
                             return Err(raise_error(
-                                format!("Requires numeric data type, got '{}'", type_name),
+                                format!("Requires numeric data type, got '{}'", s.dtype()),
                                 node_span,
                             ));
                         }
@@ -403,7 +407,9 @@ impl_parse_num!(parse_f64, "f64", f64, ParseFloatError);
 
 fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
     let mut first_scalar = "";
-    for scalar in pair.into_inner() {
+    let span = pair.as_span();
+    let len = pair.clone().into_inner().len();
+    for scalar in pair.clone().into_inner() {
         if !scalar.as_str().is_empty() || scalar.as_str() != "none" {
             first_scalar = scalar.as_str();
             break;
@@ -411,26 +417,26 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
     }
 
     let set = RegexSet::new(&[
-        r"(true|false)",
-        r"\d+u8",
-        r"-?\d+i8",
-        r"\d+u16",
-        r"-?\d+i16",
-        r"\d+u32",
-        r"-?\d+i32",
-        r"\d+u64",
-        r"-?\d+(i64)?",
-        r"-?\d*\.?\d*f32",
-        r"-?\d*\.?\d*(f64)?",
-        r"\d{4}-\d{2}-\d{2}",
-        r"\d{2}:\d{2}:\d{2}\.\d{,9}",
-        r"\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2}(\.\d{,3})?)?",
-        r"\d{4}-\d{2}-\d{2}D(\d{2}:\d{2}:\d{2}(\.\d{,9})?)?",
-        r"-?\d+D(\d{2}:\d{2}:\d{2}(\.\d{,9})?)?",
-        r"-\d+(ns|s|m|h)",
-        r"`\S+",
-        r#""[^"]*""#,
-        r"none",
+        r"^(true|false)$",
+        r"^\d+u8$",
+        r"^-?\d+i8$",
+        r"^\d+u16$",
+        r"^-?\d+i16$",
+        r"^\d+u32$",
+        r"^-?\d+i32$",
+        r"^\d+u64$",
+        r"^-?\d+(i64)?$",
+        r"^-?\d*\.?\d*f32$",
+        r"^-?\d*\.?\d*(f64)?$",
+        r"^\d{4}-\d{2}-\d{2}$",
+        r"^\d{2}:\d{2}:\d{2}\.\d{,9}$",
+        r"^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2}(\.\d{,3})?)?$",
+        r"^\d{4}-\d{2}-\d{2}D(\d{2}:\d{2}:\d{2}(\.\d{,9})?)?$",
+        r"^-?\d+D(\d{2}:\d{2}:\d{2}(\.\d{,9})?)?$",
+        r"^-\d+(ns|s|m|h)$",
+        r"^`[^`]*`$",
+        r#"^"[^"]*"$"#,
+        r"^none$",
     ])
     .unwrap();
 
@@ -439,7 +445,7 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
 
     match first_match {
         0 => {
-            let mut bools = Vec::with_capacity(pair.into_inner().len());
+            let mut bools = Vec::with_capacity(len);
             for bool in pair.into_inner() {
                 match bool.as_str() {
                     "true" => bools.push(Some(true)),
@@ -448,7 +454,7 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                     _ => {
                         return Err(raise_error(
                             format!("unrecognized bool value {}", bool),
-                            pair.as_span(),
+                            span,
                         ))
                     }
                 }
@@ -467,103 +473,122 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
         9 => parse_f32(pair),
         10 => parse_f64(pair),
         11 => {
+            let span = pair.as_span();
             let dates = pair
-                .as_str()
-                .split_whitespace()
+                .into_inner()
                 .into_iter()
-                .map(|s| J::parse_date(s).map_err(|e| raise_error(e.to_string(), pair.as_span())))
-                .collect::<Result<Vec<J>, _>>()?
-                .iter()
-                .map(|j| j.to_i64().unwrap() as i32)
-                .collect::<Vec<i32>>();
+                .map(|s| {
+                    parse_date(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
+                })
+                .collect::<Result<Vec<i32>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), dates)
                     .cast(&PolarsDataType::Date)
-                    .map_err(|e| raise_error(e.to_string(), pair.as_span()))?,
+                    .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
         12 => {
+            let span = pair.as_span();
             let times = pair
-                .as_str()
-                .split_whitespace()
+                .into_inner()
                 .into_iter()
-                .map(|s| J::parse_time(s).map_err(|e| raise_error(e.to_string(), pair.as_span())))
-                .collect::<Result<Vec<J>, _>>()?
-                .iter()
-                .map(|j| j.to_i64().unwrap())
-                .collect::<Vec<i64>>();
+                .map(|s| parse_time(s.as_str()).map_err(|e| raise_error(e, s.as_span())))
+                .collect::<Result<Vec<i64>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), times)
                     .cast(&PolarsDataType::Time)
-                    .map_err(|e| raise_error(e.to_string(), pair.as_span()))?,
+                    .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
         13 => {
+            let span = pair.as_span();
             let datetimes = pair
-                .as_str()
-                .split_whitespace()
+                .into_inner()
                 .into_iter()
                 .map(|s| {
-                    J::parse_datetime(s).map_err(|e| raise_error(e.to_string(), pair.as_span()))
+                    parse_datetime(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
                 })
-                .collect::<Result<Vec<J>, _>>()?
-                .iter()
-                .map(|j| j.to_i64().unwrap())
-                .collect::<Vec<i64>>();
+                .collect::<Result<Vec<i64>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), datetimes)
                     .cast(&PolarsDataType::Datetime(TimeUnit::Milliseconds, None))
-                    .map_err(|e| raise_error(e.to_string(), pair.as_span()))?,
+                    .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
         14 => {
+            let span = pair.as_span();
             let timestamps = pair
-                .as_str()
-                .split_whitespace()
+                .into_inner()
                 .into_iter()
                 .map(|s| {
-                    J::parse_timestamp(s).map_err(|e| raise_error(e.to_string(), pair.as_span()))
+                    parse_timestamp(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
                 })
-                .collect::<Result<Vec<J>, _>>()?
-                .iter()
-                .map(|j| j.to_i64().unwrap())
-                .collect::<Vec<i64>>();
+                .collect::<Result<Vec<i64>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), timestamps)
                     .cast(&PolarsDataType::Datetime(TimeUnit::Nanoseconds, None))
-                    .map_err(|e| raise_error(e.to_string(), pair.as_span()))?,
+                    .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
         15 | 16 => {
+            let span = pair.as_span();
             let times = pair
-                .as_str()
-                .split_whitespace()
+                .into_inner()
                 .into_iter()
                 .map(|s| {
-                    J::parse_duration(s).map_err(|e| raise_error(e.to_string(), pair.as_span()))
+                    parse_duration(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
                 })
-                .collect::<Result<Vec<J>, _>>()?
-                .iter()
-                .map(|j| j.to_i64().unwrap())
-                .collect::<Vec<i64>>();
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), times)
                     .cast(&PolarsDataType::Duration(TimeUnit::Nanoseconds))
-                    .map_err(|e| raise_error(e.to_string(), pair.as_span()))?,
+                    .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
 
-        Rule::Syms => {
-            let syms = pair.as_str()[1..].split("`").collect::<Vec<_>>();
+        17 => {
+            let span = pair.as_span();
+            let enums = pair
+                .into_inner()
+                .into_iter()
+                .map(|s| {
+                    if Regex::new(r"^`[^`]*`$")
+                        .unwrap()
+                        .is_match(s.as_str().as_bytes())
+                    {
+                        Ok(s.as_str()[1..s.as_str().len() - 1].to_owned())
+                    } else {
+                        Err(raise_error("not a enums".to_owned(), s.as_span()))
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
-                Series::new("".into(), syms)
+                Series::new("".into(), enums)
                     .cast(&PolarsDataType::Categorical(
                         None,
                         CategoricalOrdering::Lexical,
                     ))
-                    .unwrap(),
+                    .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
+        18 => {
+            let strings = pair
+                .into_inner()
+                .into_iter()
+                .map(|s| {
+                    if Regex::new(r#"^"[^"]*"$"#)
+                        .unwrap()
+                        .is_match(s.as_str().as_bytes())
+                    {
+                        Ok(s.as_str()[1..s.as_str().len() - 1].to_owned())
+                    } else {
+                        Err(raise_error("not a string".to_owned(), s.as_span()))
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
+            Ok(AstNode::J(J::Series(Series::new("".into(), strings))))
+        }
+        _ => Ok(AstNode::J(J::Series(Series::new_null("".into(), len)))),
     }
 }
 
@@ -608,7 +633,9 @@ fn parse_j(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .map(|j| J::Duration(j))?;
             Ok(AstNode::J(j))
         }
-        Rule::Enum => Ok(AstNode::J(J::Symbol(pair.as_str()[1..].to_string()))),
+        Rule::Enum => Ok(AstNode::J(J::Symbol(
+            pair.as_str()[1..pair.as_str().len() - 1].to_string(),
+        ))),
         Rule::String => {
             let str = pair.as_str();
             // Strip leading and ending quotes.
@@ -626,35 +653,55 @@ fn parse_j(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
 fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
     let mut pairs = pair.into_inner();
     // select, update, exec, delete
-    let op = get_built_in_fn(&pairs.next().unwrap())?;
+    let mut op = "select";
     let mut op_exp: Vec<AstNode> = Vec::new();
-    let mut by_exp: Vec<AstNode> = Vec::new();
+    let mut group_exp: Vec<AstNode> = Vec::new();
     let mut from_exp: AstNode = AstNode::Skip;
-    let mut where_exp: Vec<AstNode> = Vec::new();
+    let mut filter_exp: Vec<AstNode> = Vec::new();
+    let mut sort_exp: Vec<AstNode> = Vec::new();
+    let mut take_exp = None;
     while let Some(some_pair) = pairs.next() {
         match some_pair.as_rule() {
-            Rule::SelectExp | Rule::ColNames => {
+            Rule::SelectOp | Rule::UpdateOp | Rule::DeleteOp => {
+                op = &some_pair.as_str()[..6];
                 let op_pairs = some_pair.into_inner();
                 for op_pair in op_pairs {
                     op_exp.push(parse_sql_col_exp(op_pair, source_id)?)
                 }
             }
-            Rule::ByExp => {
-                let by_pairs = some_pair.into_inner();
-                by_exp = Vec::with_capacity(by_pairs.len());
-                for by_pair in by_pairs {
-                    by_exp.push(parse_sql_col_exp(by_pair, source_id)?)
+            Rule::GroupExp => {
+                let group_pairs = some_pair.into_inner();
+                group_exp = Vec::with_capacity(group_pairs.len());
+                for group_pair in group_pairs {
+                    group_exp.push(parse_sql_col_exp(group_pair, source_id)?)
                 }
             }
-            Rule::FromExp | Rule::FromWithoutWhereExp => {
+            Rule::FromExp => {
                 from_exp = parse_exp(some_pair.into_inner().next().unwrap(), source_id)?
             }
             Rule::FilterExp => {
-                let where_pairs = some_pair.into_inner();
-                where_exp = Vec::with_capacity(where_pairs.len());
-                for where_pair in where_pairs {
-                    where_exp.push(parse_exp(where_pair, source_id)?)
+                let filter_pairs = some_pair.into_inner();
+                filter_exp = Vec::with_capacity(filter_pairs.len());
+                for filter_pair in filter_pairs {
+                    filter_exp.push(parse_exp(filter_pair, source_id)?)
                 }
+            }
+            Rule::SortOp => {
+                let sort_pairs = some_pair.into_inner();
+                sort_exp = Vec::with_capacity(sort_pairs.len());
+                for sort_pair in sort_pairs {
+                    sort_exp.push(AstNode::Id {
+                        id: sort_pair.as_str().to_owned(),
+                        pos: sort_pair.as_span().start(),
+                        source_id: source_id,
+                    })
+                }
+            }
+            Rule::TakeOp => {
+                take_exp = Some(Box::new(parse_exp(
+                    some_pair.into_inner().next().unwrap(),
+                    source_id,
+                )?))
             }
             unexpected_exp => {
                 return Err(raise_error(
@@ -665,18 +712,20 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         }
     }
     Ok(AstNode::Sql {
-        op,
+        op: op.to_owned(),
         op_exp,
-        group_exp: by_exp,
+        group_exp,
         from_exp: Box::new(from_exp),
-        filter_exp: where_exp,
+        filter_exp,
+        sort_exp,
+        take_exp,
     })
 }
 
 fn parse_sql_col_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
     match pair.as_rule() {
-        Rule::ColExp => parse_sql_col_exp(pair.into_inner().next().unwrap(), source_id),
-        Rule::RenameColExp => {
+        Rule::SeriesExp => parse_sql_col_exp(pair.into_inner().next().unwrap(), source_id),
+        Rule::RenameSeriesExp => {
             let mut pairs = pair.into_inner();
             let name = pairs.next().unwrap().as_str();
             let exp = parse_exp(pairs.next().unwrap(), source_id)?;
@@ -685,9 +734,14 @@ fn parse_sql_col_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, Pest
                 exp: Box::new(exp),
             })
         }
-        Rule::ColName => Ok(AstNode::Id(
-            pair.into_inner().next().unwrap().as_str().to_owned(),
-        )),
+        Rule::SeriesName => {
+            let name_node = pair.into_inner().next().unwrap();
+            Ok(AstNode::Id {
+                id: name_node.as_str().to_owned(), /* value */
+                pos: name_node.as_span().start(),  /* value */
+                source_id: source_id,              /* value */
+            })
+        }
         _ => parse_exp(pair, source_id),
     }
 }
