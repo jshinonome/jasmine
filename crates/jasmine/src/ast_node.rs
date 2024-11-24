@@ -6,11 +6,10 @@ pub enum AstNode {
     J(J),
     Fn {
         f: Vec<AstNode>,
-        fn_body: String,
-        arg_num: usize,
         arg_names: Vec<String>,
         args: Vec<AstNode>,
-        pos: usize,
+        start: usize,
+        end: usize,
         source_id: usize,
     },
     UnaryExp {
@@ -33,12 +32,12 @@ pub enum AstNode {
     },
     Operator {
         op: String,
-        pos: usize,
+        start: usize,
         source_id: usize,
     },
     Id {
         id: String,
-        pos: usize,
+        start: usize,
         source_id: usize,
     },
     FnCall {

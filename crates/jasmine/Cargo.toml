@@ -13,12 +13,15 @@ thiserror = "2.0.3"
 anyhow = "1.0.93"
 indexmap = "2.6.0"
 ndarray = "0.15.6"
-polars = { version = "0.44.2", features = [
+regex = "1.11.1"
+
+[dependencies.polars]
+workspace = true
+features = [
   "dtype-u8",
   "dtype-u16",
   "dtype-i8",
   "dtype-i16",
   "dtype-categorical",
   "ndarray",
-] }
-regex = "1.11.1"
+]

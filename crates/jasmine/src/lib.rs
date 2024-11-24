@@ -1,5 +1,5 @@
 mod ast_node;
-mod errors;
+pub mod errors;
 mod j;
 mod parser;
 pub use errors::trace;

@@ -2202,12 +2202,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "py-jasmine"
+version = "0.0.1"
+dependencies = [
+ "chrono",
+ "indexmap",
+ "jasmine",
+ "polars",
+ "pyo3",
+ "pyo3-polars",
+ "thiserror 2.0.3",
+]
+
+[[package]]
 name = "pyo3"
 version = "0.21.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a5e00b96a521718e08e03b1a622f01c8a8deb50719335de3f60b3b3950f069d8"
 dependencies = [
  "cfg-if",
+ "chrono",
  "indoc",
  "libc",
  "memoffset",
@@ -2262,6 +2276,20 @@ dependencies = [
  "pyo3-build-config",
  "quote",
  "syn 2.0.87",
+]
+
+[[package]]
+name = "pyo3-polars"
+version = "0.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "08d315add0412858cb21d45f0a48d68974d32f5f93f92fd9cedc95102ea011d1"
+dependencies = [
+ "libc",
+ "once_cell",
+ "polars",
+ "polars-core",
+ "pyo3",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
