@@ -5,32 +5,32 @@ use crate::j::J;
 pub enum AstNode {
     J(J),
     Fn {
-        f: Vec<AstNode>,
+        stmts: Vec<AstNode>,
         arg_names: Vec<String>,
         args: Vec<AstNode>,
+        fn_body: String,
         start: usize,
-        end: usize,
         source_id: usize,
     },
-    UnaryExp {
-        f: Box<AstNode>,
+    UnaryOp {
+        op: Box<AstNode>,
         exp: Box<AstNode>,
     },
-    BinaryExp {
-        f: Box<AstNode>,
+    BinOp {
+        op: Box<AstNode>,
         lhs: Box<AstNode>,
         rhs: Box<AstNode>,
     },
-    AssignmentExp {
+    Assign {
         id: String,
         exp: Box<AstNode>,
     },
-    IndexAssignmentExp {
+    IndexAssign {
         id: String,
         indices: Vec<AstNode>,
         exp: Box<AstNode>,
     },
-    Operator {
+    Op {
         op: String,
         start: usize,
         source_id: usize,
@@ -40,17 +40,17 @@ pub enum AstNode {
         start: usize,
         source_id: usize,
     },
-    FnCall {
+    Call {
         f: Box<AstNode>,
         args: Vec<AstNode>,
     },
     If {
         cond: Box<AstNode>,
-        nodes: Vec<AstNode>,
+        stmts: Vec<AstNode>,
     },
     While {
         cond: Box<AstNode>,
-        nodes: Vec<AstNode>,
+        stmts: Vec<AstNode>,
     },
     Try {
         tries: Vec<AstNode>,
@@ -65,18 +65,18 @@ pub enum AstNode {
         values: Vec<AstNode>,
     },
     List(Vec<AstNode>),
-    SeriesExp {
+    Series {
         name: String,
         exp: Box<AstNode>,
     },
     Sql {
         op: String,
-        from_exp: Box<AstNode>,
-        filter_exp: Vec<AstNode>,
-        group_exp: Vec<AstNode>,
-        op_exp: Vec<AstNode>,
-        sort_exp: Vec<AstNode>,
-        take_exp: Option<Box<AstNode>>,
+        from: Box<AstNode>,
+        filters: Vec<AstNode>,
+        groups: Vec<AstNode>,
+        ops: Vec<AstNode>,
+        sorts: Vec<AstNode>,
+        take: Option<Box<AstNode>>,
     },
     Skip,
 }

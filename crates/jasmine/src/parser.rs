@@ -25,12 +25,12 @@ pub struct JParser;
 
 fn parse_binary_op(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
     match pair.as_rule() {
-        Rule::BinaryOp => Ok(AstNode::Operator {
+        Rule::BinaryOp => Ok(AstNode::Op {
             op: pair.as_str().to_owned(),
             start: pair.as_span().start(),
             source_id,
         }),
-        Rule::BinaryId => Ok(AstNode::Operator {
+        Rule::BinaryId => Ok(AstNode::Op {
             op: pair.as_str()[1..].to_owned(),
             start: pair.as_span().start(),
             source_id,
@@ -51,8 +51,8 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             let unary = pair.next().unwrap();
             let exp = pair.next().unwrap();
             let exp = parse_exp(exp, source_id)?;
-            Ok(AstNode::UnaryExp {
-                f: Box::new(parse_exp(unary, source_id)?),
+            Ok(AstNode::UnaryOp {
+                op: Box::new(parse_exp(unary, source_id)?),
                 exp: Box::new(exp),
             })
         }
@@ -63,8 +63,8 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             let binary_exp = pair.next().unwrap();
             let rhs_pair = pair.next().unwrap();
             let rhs = parse_exp(rhs_pair, source_id)?;
-            Ok(AstNode::BinaryExp {
-                f: Box::new(parse_binary_op(binary_exp, source_id)?),
+            Ok(AstNode::BinOp {
+                op: Box::new(parse_binary_op(binary_exp, source_id)?),
                 lhs: Box::new(lhs),
                 rhs: Box::new(rhs),
             })
@@ -91,7 +91,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                     indices.push(parse_exp(arg.into_inner().next().unwrap(), source_id)?)
                 }
                 let exp = parse_exp(pairs.next().unwrap(), source_id)?;
-                Ok(AstNode::IndexAssignmentExp {
+                Ok(AstNode::IndexAssign {
                     id: id.to_owned(),
                     indices,
                     exp: Box::new(exp),
@@ -99,7 +99,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             } else {
                 let exp = pairs.next().unwrap();
                 let exp = parse_exp(exp, source_id)?;
-                Ok(AstNode::AssignmentExp {
+                Ok(AstNode::Assign {
                     id: id.as_str().to_owned(),
                     exp: Box::new(exp),
                 })
@@ -125,11 +125,11 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 nodes.push(parse_exp(pair, source_id)?)
             }
             Ok(AstNode::Fn {
-                f: nodes,
+                stmts: nodes,
                 arg_names: params,
                 args: Vec::new(),
+                fn_body: fn_body.to_owned(),
                 start: fn_span.start(),
-                end: fn_span.end(),
                 source_id,
             })
         }
@@ -141,7 +141,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 args.push(parse_exp(pair.into_inner().next().unwrap(), source_id)?)
             }
             // if f is eval, and first args is J::String, parse J::string
-            Ok(AstNode::FnCall {
+            Ok(AstNode::Call {
                 f: Box::new(f),
                 args,
             })
@@ -159,7 +159,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             }
             Ok(AstNode::If {
                 cond: Box::new(cond),
-                nodes,
+                stmts: nodes,
             })
         }
         Rule::WhileExp => {
@@ -175,7 +175,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             }
             Ok(AstNode::While {
                 cond: Box::new(cond),
-                nodes,
+                stmts: nodes,
             })
         }
         Rule::TryExp => {
@@ -233,13 +233,13 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                     source_id: _,
                 } = &exp
                 {
-                    col_exps.push(AstNode::SeriesExp {
+                    col_exps.push(AstNode::Series {
                         name: name.to_owned(),
                         exp: Box::new(exp),
                     });
                     all_series = false;
                 } else {
-                    col_exps.push(AstNode::SeriesExp {
+                    col_exps.push(AstNode::Series {
                         name,
                         exp: Box::new(exp),
                     });
@@ -295,7 +295,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                         exps.push(AstNode::J(J::Series(s)));
                     }
                 } else {
-                    exps.push(AstNode::SeriesExp {
+                    exps.push(AstNode::Series {
                         name: col_name,
                         exp: Box::new(exp),
                     });
@@ -351,7 +351,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
 
 fn parse_list(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
     match pair.as_rule() {
-        Rule::BinaryOp => Ok(AstNode::Operator {
+        Rule::BinaryOp => Ok(AstNode::Op {
             op: pair.as_str().to_owned(),
             start: pair.as_span().start(),
             source_id: source_id,
@@ -653,43 +653,41 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
     let mut pairs = pair.into_inner();
     // select, update, exec, delete
     let mut op = "select";
-    let mut op_exp: Vec<AstNode> = Vec::new();
-    let mut group_exp: Vec<AstNode> = Vec::new();
-    let mut from_exp: AstNode = AstNode::Skip;
-    let mut filter_exp: Vec<AstNode> = Vec::new();
-    let mut sort_exp: Vec<AstNode> = Vec::new();
-    let mut take_exp = None;
+    let mut ops: Vec<AstNode> = Vec::new();
+    let mut groups: Vec<AstNode> = Vec::new();
+    let mut from: AstNode = AstNode::Skip;
+    let mut filters: Vec<AstNode> = Vec::new();
+    let mut sorts: Vec<AstNode> = Vec::new();
+    let mut take = None;
     while let Some(some_pair) = pairs.next() {
         match some_pair.as_rule() {
             Rule::SelectOp | Rule::UpdateOp | Rule::DeleteOp => {
                 op = &some_pair.as_str()[..6];
                 let op_pairs = some_pair.into_inner();
                 for op_pair in op_pairs {
-                    op_exp.push(parse_sql_col_exp(op_pair, source_id)?)
+                    ops.push(parse_sql_col_exp(op_pair, source_id)?)
                 }
             }
             Rule::GroupExp => {
                 let group_pairs = some_pair.into_inner();
-                group_exp = Vec::with_capacity(group_pairs.len());
+                groups = Vec::with_capacity(group_pairs.len());
                 for group_pair in group_pairs {
-                    group_exp.push(parse_sql_col_exp(group_pair, source_id)?)
+                    groups.push(parse_sql_col_exp(group_pair, source_id)?)
                 }
             }
-            Rule::FromExp => {
-                from_exp = parse_exp(some_pair.into_inner().next().unwrap(), source_id)?
-            }
+            Rule::FromExp => from = parse_exp(some_pair.into_inner().next().unwrap(), source_id)?,
             Rule::FilterExp => {
                 let filter_pairs = some_pair.into_inner();
-                filter_exp = Vec::with_capacity(filter_pairs.len());
+                filters = Vec::with_capacity(filter_pairs.len());
                 for filter_pair in filter_pairs {
-                    filter_exp.push(parse_exp(filter_pair, source_id)?)
+                    filters.push(parse_exp(filter_pair, source_id)?)
                 }
             }
             Rule::SortOp => {
                 let sort_pairs = some_pair.into_inner();
-                sort_exp = Vec::with_capacity(sort_pairs.len());
+                sorts = Vec::with_capacity(sort_pairs.len());
                 for sort_pair in sort_pairs {
-                    sort_exp.push(AstNode::Id {
+                    sorts.push(AstNode::Id {
                         id: sort_pair.as_str().to_owned(),
                         start: sort_pair.as_span().start(),
                         source_id,
@@ -697,7 +695,7 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 }
             }
             Rule::TakeOp => {
-                take_exp = Some(Box::new(parse_exp(
+                take = Some(Box::new(parse_exp(
                     some_pair.into_inner().next().unwrap(),
                     source_id,
                 )?))
@@ -712,12 +710,12 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
     }
     Ok(AstNode::Sql {
         op: op.to_owned(),
-        op_exp,
-        group_exp,
-        from_exp: Box::new(from_exp),
-        filter_exp,
-        sort_exp,
-        take_exp,
+        ops,
+        groups,
+        from: Box::new(from),
+        filters,
+        sorts,
+        take,
     })
 }
 
@@ -728,7 +726,7 @@ fn parse_sql_col_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, Pest
             let mut pairs = pair.into_inner();
             let name = pairs.next().unwrap().as_str();
             let exp = parse_exp(pairs.next().unwrap(), source_id)?;
-            Ok(AstNode::SeriesExp {
+            Ok(AstNode::Series {
                 name: name.to_owned(),
                 exp: Box::new(exp),
             })

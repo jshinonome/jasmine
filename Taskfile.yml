@@ -1,12 +1,39 @@
 # https://taskfile.dev
 
-version: '3'
+version: "3"
 
 vars:
-  GREETING: Hello, World!
+  WIN_PY: .venv/Scripts
+  PY: .venv/bin
 
 tasks:
   default:
     cmds:
-      - echo "{{.GREETING}}"
+      - echo "jasmine tasks"
     silent: true
+
+  setup-venv:
+    cmds:
+      - python3 -m venv .venv
+      - "{{.PY}}/python -m pip install --upgrade pip"
+      - "{{.PY}}/pip install --upgrade -r py-jasmine/requirements.txt"
+
+  build-py:
+    dir: py-jasmine
+    cmds:
+      - unset CONDA_PREFIX && source ../{{.PY}}/activate && maturin develop --strip
+
+  build-py-debug-opt:
+    dir: py-jasmine
+    cmds:
+      - unset CONDA_PREFIX && source ../{{.PY}}/activate && maturin develop --profile opt-dev
+
+  build-py-opt:
+    dir: py-jasmine
+    cmds:
+      - unset CONDA_PREFIX && source ../{{.PY}}/activate && maturin develop --profile debug-release
+
+  release-py:
+    dir: py-jasmine
+    cmds:
+      - unset CONDA_PREFIX && source ../{{.PY}}/activate && maturin build --release

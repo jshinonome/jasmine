@@ -2,7 +2,7 @@ use chrono::{DateTime, NaiveDate, NaiveTime, TimeDelta};
 use jasmine::j::J;
 use numpy::ToPyArray;
 use pyo3::{
-    pyclass,
+    pyclass, pymethods,
     types::{PyDict, PyDictMethods, PyTuple},
     IntoPy, PyObject, PyResult, Python, ToPyObject,
 };
@@ -13,8 +13,11 @@ use crate::error::JasmineError;
 #[pyclass]
 pub struct JObj {
     j: J,
+    #[pyo3(get)]
+    j_type: JType,
 }
 
+#[pymethods]
 impl JObj {
     pub fn as_py(&self, py: Python<'_>) -> PyResult<PyObject> {
         match &self.j {
@@ -40,14 +43,14 @@ impl JObj {
             J::MixedList(l) => {
                 let py_objects = l
                     .into_iter()
-                    .map(|k| JObj { j: k.clone() }.as_py(py))
+                    .map(|k| JObj::new(k.clone()).as_py(py))
                     .collect::<PyResult<Vec<PyObject>>>()?;
                 Ok(PyTuple::new_bound(py, py_objects).into())
             }
             J::Dict(dict) => {
                 let py_dict = PyDict::new_bound(py);
                 for (k, v) in dict.into_iter() {
-                    py_dict.set_item(k, JObj { j: v.clone() }.as_py(py)?)?;
+                    py_dict.set_item(k, JObj::new(v.clone()).as_py(py)?)?;
                 }
                 Ok(py_dict.into())
             }
@@ -55,27 +58,51 @@ impl JObj {
             J::Err(v) => Err(JasmineError::new_err(v.to_string()).into()),
         }
     }
+}
 
-    pub fn get_type_num(&self, py: Python<'_>) -> PyObject {
-        match &self.j {
-            J::None => 0i32.into_py(py),
-
-            J::Boolean(_) => 1i32.into_py(py),
-            J::I64(_) => 2i32.into_py(py),
-            J::Date(_) => 3i32.into_py(py),
-            J::Time(_) => 4i32.into_py(py),
-            J::Datetime(_) => 5i32.into_py(py),
-            J::Timestamp(_) => 6i32.into_py(py),
-            J::Duration(_) => 7i32.into_py(py),
-            J::F64(_) => 8i32.into_py(py),
-            J::String(_) => 9i32.into_py(py),
-            J::Symbol(_) => 10i32.into_py(py),
-            J::Series(_) => 11i32.into_py(py),
-            J::Matrix(_) => 12i32.into_py(py),
-            J::MixedList(_) => 13i32.into_py(py),
-            J::Dict(_) => 14i32.into_py(py),
-            J::DataFrame(_) => 15i32.into_py(py),
-            J::Err(_) => 16i32.into_py(py),
-        }
+impl JObj {
+    pub fn new(j: J) -> Self {
+        let j_type = match j {
+            J::None => JType::None,
+            J::Boolean(_) => JType::Boolean,
+            J::I64(_) => JType::I64,
+            J::Date(_) => JType::Date,
+            J::Time(_) => JType::Time,
+            J::Datetime(_) => JType::Datetime,
+            J::Timestamp(_) => JType::Timestamp,
+            J::Duration(_) => JType::Duration,
+            J::F64(_) => JType::F64,
+            J::String(_) => JType::String,
+            J::Symbol(_) => JType::Symbol,
+            J::Series(_) => JType::Series,
+            J::Matrix(_) => JType::Matrix,
+            J::MixedList(_) => JType::List,
+            J::Dict(_) => JType::Dict,
+            J::DataFrame(_) => JType::DataFrame,
+            J::Err(_) => JType::Err,
+        };
+        Self { j, j_type }
     }
+}
+
+#[pyclass]
+#[derive(Clone, PartialEq)]
+pub enum JType {
+    None,
+    Boolean,
+    I64,
+    Date,
+    Time,
+    Datetime,
+    Timestamp,
+    Duration,
+    F64,
+    String,
+    Symbol,
+    Series,
+    Matrix,
+    List,
+    Dict,
+    DataFrame,
+    Err,
 }
