@@ -3,12 +3,18 @@ pub mod j;
 pub mod parse;
 use error::{JasmineError, JasmineParseError};
 use j::{JObj, JType};
+use jasmine::trace;
 use parse::{
     parse_source_code, AstAssign, AstBinOp, AstCall, AstDataFrame, AstDict, AstFn, AstId, AstIf,
     AstIndexAssign, AstList, AstMatrix, AstOp, AstRaise, AstReturn, AstSeries, AstSkip, AstSql,
     AstTry, AstUnaryOp, AstWhile,
 };
 use pyo3::prelude::*;
+
+#[pyfunction]
+pub fn print_trace(source: &str, path: &str, pos: usize, msg: &str) -> String {
+    trace(source, path, pos, msg)
+}
 
 #[pymodule]
 fn jasminum(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -18,7 +24,6 @@ fn jasminum(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
         py.get_type_bound::<JasmineParseError>(),
     )?;
     m.add_class::<JObj>()?;
-    m.add_class::<JType>()?;
     m.add_class::<AstId>()?;
     m.add_class::<AstFn>()?;
     m.add_class::<AstUnaryOp>()?;
@@ -41,5 +46,6 @@ fn jasminum(py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<AstSql>()?;
     m.add_class::<AstSkip>()?;
     m.add_function(wrap_pyfunction!(parse_source_code, m)?)?;
+    m.add_function(wrap_pyfunction!(print_trace, m)?)?;
     Ok(())
 }

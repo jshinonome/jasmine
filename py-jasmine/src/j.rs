@@ -14,7 +14,7 @@ use crate::error::JasmineError;
 pub struct JObj {
     j: J,
     #[pyo3(get)]
-    j_type: JType,
+    j_type: u8,
 }
 
 #[pymethods]
@@ -26,14 +26,10 @@ impl JObj {
             J::Date(v) => Ok(NaiveDate::from_num_days_from_ce_opt(*v)
                 .unwrap()
                 .to_object(py)),
-            J::Time(v) => Ok(NaiveTime::from_num_seconds_from_midnight_opt(
-                (v / 1000_000_000) as u32,
-                (v % 1000_000_000) as u32,
-            )
-            .into_py(py)),
-            J::Datetime(v) => Ok(DateTime::from_timestamp_nanos(*v).into_py(py)),
-            J::Timestamp(v) => Ok(DateTime::from_timestamp_nanos(*v).into_py(py)),
-            J::Duration(v) => Ok(TimeDelta::nanoseconds(*v).into_py(py)),
+            J::Time(v) => Ok(v.into_py(py)),
+            J::Datetime(v) => Ok(v.into_py(py)),
+            J::Timestamp(v) => Ok(v.into_py(py)),
+            J::Duration(v) => Ok(v.into_py(py)),
             J::F64(v) => Ok(v.into_py(py)),
             J::String(v) => Ok(v.into_py(py)),
             J::Symbol(v) => Ok(v.into_py(py)),
@@ -81,11 +77,13 @@ impl JObj {
             J::DataFrame(_) => JType::DataFrame,
             J::Err(_) => JType::Err,
         };
-        Self { j, j_type }
+        Self {
+            j,
+            j_type: j_type as u8,
+        }
     }
 }
 
-#[pyclass]
 #[derive(Clone, PartialEq)]
 pub enum JType {
     None,
