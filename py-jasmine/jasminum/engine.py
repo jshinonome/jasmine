@@ -1,7 +1,7 @@
 from typing import Callable
 
-from jasminum.j import JFn
-from jasminum.operator import add
+from .j_fn import JFn
+from .operator import add
 
 
 class Engine:

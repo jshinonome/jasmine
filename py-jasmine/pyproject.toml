@@ -28,3 +28,6 @@ include = ["rust-toolchain.toml"]
 
 [project.urls]
 Repository = "https://github.com/jshinonome/kola"
+
+[project.scripts]
+jasminum = "jasminum.main:main"

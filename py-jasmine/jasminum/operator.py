@@ -1,4 +1,5 @@
-from jasminum.j import J, JFn, JType
+from .j import J, JType
+from .j_fn import JFn
 
 
 def add(arg1: J, arg2: J):

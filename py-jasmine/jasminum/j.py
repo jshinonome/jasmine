@@ -1,7 +1,7 @@
 from enum import Enum
-from typing import Callable
 
-from jasminum.ast import AstFn, JObj
+from .ast import JObj
+from .j_fn import JFn
 
 
 class JType(Enum):
@@ -24,6 +24,7 @@ class JType(Enum):
     ERR = 16
     FN = 17
     MISSING = 18
+    RETURN = 19
 
 
 class J:
@@ -38,22 +39,3 @@ class J:
             self.j_type = JType.FN
         else:
             self.j_type = j_type
-
-
-class JFn:
-    fn: Callable | AstFn | None
-    args: dict
-    arg_names: list[str]
-    arg_num: int
-
-    def __init__(
-        self,
-        fn: Callable | AstFn | None,
-        args: dict,
-        arg_names: list[str],
-        arg_num: int,
-    ) -> None:
-        self.fn = fn
-        self.args = args
-        self.arg_names = arg_names
-        self.arg_num = arg_num

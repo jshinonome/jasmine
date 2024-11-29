@@ -2,7 +2,7 @@ pub mod error;
 pub mod j;
 pub mod parse;
 use error::{JasmineError, JasmineParseError};
-use j::{JObj, JType};
+use j::JObj;
 use jasmine::trace;
 use parse::{
     parse_source_code, AstAssign, AstBinOp, AstCall, AstDataFrame, AstDict, AstFn, AstId, AstIf,
