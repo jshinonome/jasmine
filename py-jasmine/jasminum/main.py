@@ -16,7 +16,7 @@ def main():
             src = input(text)
             engine.sources[0] = (src, "")
             res = eval_src(src, 0, engine, Context(dict()))
-            print(res)
+            cprint(res, "light_green")
         except EOFError:
             cprint("exit on ctrl+D", "red")
             exit(0)

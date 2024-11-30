@@ -15,7 +15,7 @@ use polars::series::Series;
 use regex::bytes::Regex;
 use regex::RegexSet;
 
-const UNIX_EPOCH_DAY: i32 = 719_163;
+// const UNIX_EPOCH_DAY: i32 = 719_163;
 
 pub const NS_IN_DAY: i64 = 86_400_000_000_000;
 
@@ -757,7 +757,7 @@ pub fn parse(source: &str, source_id: usize) -> Result<Vec<AstNode>, PestError<R
 
 pub fn parse_date(date: &str) -> Result<i32, String> {
     match chrono::NaiveDate::parse_from_str(date, "%Y-%m-%d") {
-        Ok(d) => Ok(d.num_days_from_ce() - UNIX_EPOCH_DAY),
+        Ok(d) => Ok(d.num_days_from_ce()),
         Err(_) => Err(format!("Not a valid date, {}", date)),
     }
 }

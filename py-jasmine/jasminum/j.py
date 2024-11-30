@@ -1,3 +1,4 @@
+from datetime import date
 from enum import Enum
 
 from .ast import JObj
@@ -41,6 +42,13 @@ class J:
             self.j_type = j_type
 
     def __str__(self) -> str:
-        match self.j_type:
+        match JType(self.j_type):
             case JType.INT | JType.FLOAT:
                 return f"{self.data}"
+            case JType.DATE:
+                return self.data.isoformat()
+            case _:
+                return repr(self)
+
+    def __repr__(self) -> str:
+        return "<%s - %s>" % (self.j_type.name, self.data)
