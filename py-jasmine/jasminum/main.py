@@ -14,6 +14,7 @@ def main():
     while src != "exit":
         try:
             src = input(text)
+            engine.sources[0] = (src, "")
             res = eval_src(src, 0, engine, Context(dict()))
             print(res)
         except EOFError:

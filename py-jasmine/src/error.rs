@@ -8,7 +8,7 @@ use thiserror::Error;
 #[derive(Debug, Error)]
 pub enum JasmineErr {
     #[error(transparent)]
-    KolaError(#[from] JError),
+    JasmineError(#[from] JError),
 
     #[error("{0:?}")]
     PythonError(String),
@@ -19,9 +19,9 @@ impl std::convert::From<JasmineErr> for PyErr {
         let default = || PyRuntimeError::new_err(format!("{:?}", &err));
         use JasmineErr::*;
         match &err {
-            KolaError(e) => match e {
-                JError::ParserErr(_) => JasmineParseError::new_err(err.to_string()),
-                _ => JasmineError::new_err(err.to_string()),
+            JasmineError(e) => match e {
+                JError::ParserErr(_) => PyJasmineParseErr::new_err(err.to_string()),
+                _ => PyJasmineErr::new_err(err.to_string()),
             },
 
             PythonError(_) => default(),
@@ -29,5 +29,5 @@ impl std::convert::From<JasmineErr> for PyErr {
     }
 }
 
-create_exception!(kola.exceptions, JasmineError, PyException);
-create_exception!(kola.exceptions, JasmineParseError, PyException);
+create_exception!(kola.exceptions, PyJasmineErr, PyException);
+create_exception!(kola.exceptions, PyJasmineParseErr, PyException);

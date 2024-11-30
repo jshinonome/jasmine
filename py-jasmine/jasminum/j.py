@@ -39,3 +39,8 @@ class J:
             self.j_type = JType.FN
         else:
             self.j_type = j_type
+
+    def __str__(self) -> str:
+        match self.j_type:
+            case JType.INT | JType.FLOAT:
+                return f"{self.data}"

@@ -2,6 +2,7 @@ from copy import copy
 from typing import Callable
 
 from .ast import (
+    Ast,
     AstAssign,
     AstBinOp,
     AstCall,
@@ -20,6 +21,7 @@ from .ast import (
     AstSkip,
     AstSql,
     AstTry,
+    AstType,
     AstUnaryOp,
     AstWhile,
     JObj,
@@ -52,37 +54,93 @@ def eval_src(source_code: str, source_id: int, engine: Engine, ctx: Context):
     return res
 
 
+def downcast_ast_node(node: Ast):
+    ast_type = AstType(node.get_ast_type())
+    match ast_type:
+        case AstType.J:
+            return node.j()
+        case AstType.Fn:
+            return node.fn()
+        case AstType.UnaryOp:
+            return node.unary_op()
+        case AstType.BinOp:
+            return node.bin_op()
+        case AstType.Assign:
+            return node.assign()
+        case AstType.IndexAssign:
+            return node.index_assign()
+        case AstType.Op:
+            return node.op()
+        case AstType.Id:
+            return node.id()
+        case AstType.Call:
+            return node.call()
+        case AstType.If:
+            return node.if_exp()
+        case AstType.While:
+            return node.while_exp()
+        case AstType.Try:
+            return node.try_exp()
+        case AstType.Return:
+            return node.return_exp()
+        case AstType.Raise:
+            return node.raise_exp()
+        case AstType.Dataframe:
+            return node.dataframe()
+        case AstType.Matrix:
+            return node.matrix()
+        case AstType.Dict:
+            return node.dict()
+        case AstType.List:
+            return node.list()
+        case AstType.Series:
+            return node.series()
+        case AstType.Sql:
+            return node.sql()
+        case AstType.Skip:
+            return node.skip()
+
+
 def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
+    if isinstance(node, Ast):
+        node = downcast_ast_node(node)
+    if isinstance(node, JObj):
+        return J(node.as_py(), node.j_type)
     if isinstance(node, AstAssign):
-        res = eval_node(AstAssign.exp, engine, ctx, is_in_fn)
-        if is_in_fn and "." not in AstAssign.id:
-            ctx.locals[AstAssign.id] = res
+        res = eval_node(node.exp, engine, ctx, is_in_fn)
+        if is_in_fn and "." not in node.id:
+            ctx.locals[node.id] = res
         else:
             engine.globals[AstAssign.id] = res
     elif isinstance(node, AstBinOp):
-        op = eval_node(AstBinOp.op, engine, ctx, is_in_fn)
-        lhs = eval_node(AstBinOp.lhs, engine, ctx, is_in_fn)
-        rhs = eval_node(AstBinOp.rhs, engine, ctx, is_in_fn)
+        op = downcast_ast_node(node.op)
+        op_fn = eval_node(op, engine, ctx, is_in_fn)
+        lhs = eval_node(node.lhs, engine, ctx, is_in_fn)
+        rhs = eval_node(node.rhs, engine, ctx, is_in_fn)
         return eval_fn(
-            op,
+            op_fn,
             engine,
             ctx,
-            node.op.source_id,
-            node.op.start,
+            op.source_id,
+            op.start,
             lhs,
             rhs,
         )
     elif isinstance(node, AstOp):
-        if AstOp.op in engine.builtins:
+        if node.op in engine.builtins:
             return engine.builtins.get(node.op)
-        elif AstOp.op in engine.globals:
+        elif node.op in engine.globals:
             return engine.globals.get(node.op)
         else:
             raise JasmineEvalException(
-                get_trace(node.source_id, node.start, "'%s' is not defined" % node.op)
+                get_trace(
+                    engine, node.source_id, node.start, "'%s' is not defined" % node.op
+                )
             )
     elif isinstance(node, AstFn):
         raise JasmineEvalException("not yet implemented")
+    else:
+        raise JasmineEvalException("not yet implemented - %s" % node)
 
 
 def eval_fn(fn: JFn, engine: Engine, ctx: Context, source_id: int, start: int, *args):
@@ -106,7 +164,7 @@ def eval_fn(fn: JFn, engine: Engine, ctx: Context, source_id: int, start: int, *
 
     if missing_arg_num == 0 and fn.arg_num == len(args):
         if isinstance(fn.fn, Callable):
-            return fn.fn(**{fn_args})
+            return fn.fn(**fn_args)
         else:
             return eval_node(fn.fn, engine, Context(fn_args), True)
     else:

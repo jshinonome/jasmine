@@ -127,13 +127,13 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             Ok(AstNode::Fn {
                 stmts: nodes,
                 arg_names: params,
-                args: Vec::new(),
                 fn_body: fn_body.to_owned(),
                 start: fn_span.start(),
                 source_id,
             })
         }
         Rule::FnCall => {
+            let span = pair.as_span();
             let mut pairs = pair.into_inner();
             let f = parse_exp(pairs.next().unwrap(), source_id)?;
             let mut args = Vec::with_capacity(pairs.len() - 1);
@@ -144,6 +144,8 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             Ok(AstNode::Call {
                 f: Box::new(f),
                 args,
+                start: span.start(),
+                source_id,
             })
         }
         Rule::IfExp => {
@@ -202,7 +204,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         Rule::Dataframe => {
             let span = pair.as_span();
             let cols = pair.into_inner();
-            let mut col_exps: Vec<AstNode> = Vec::with_capacity(cols.len());
+            let mut series_exps: Vec<AstNode> = Vec::with_capacity(cols.len());
             let mut all_series = true;
             for (i, col_exp) in cols.enumerate() {
                 let name: String;
@@ -219,13 +221,13 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 if let AstNode::J(j) = exp {
                     if let J::Series(mut s) = j {
                         s.rename(name.into());
-                        col_exps.push(AstNode::J(J::Series(s)));
+                        series_exps.push(AstNode::J(J::Series(s)));
                     } else {
                         let mut s = j
                             .into_series()
                             .map_err(|e| raise_error(e.to_string(), span))?;
                         s.rename(name.into());
-                        col_exps.push(AstNode::J(J::Series(s)));
+                        series_exps.push(AstNode::J(J::Series(s)));
                     }
                 } else if let AstNode::Id {
                     id: name,
@@ -233,13 +235,13 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                     source_id: _,
                 } = &exp
                 {
-                    col_exps.push(AstNode::Series {
+                    series_exps.push(AstNode::Series {
                         name: name.to_owned(),
                         exp: Box::new(exp),
                     });
                     all_series = false;
                 } else {
-                    col_exps.push(AstNode::Series {
+                    series_exps.push(AstNode::Series {
                         name,
                         exp: Box::new(exp),
                     });
@@ -247,7 +249,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 }
             }
             if all_series {
-                let series: Vec<Column> = col_exps
+                let series: Vec<Column> = series_exps
                     .into_iter()
                     .map(|node| node.as_j().unwrap().series().unwrap().clone().into())
                     .collect();
@@ -257,7 +259,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 };
                 Ok(AstNode::J(J::DataFrame(df)))
             } else {
-                Ok(AstNode::Dataframe(col_exps))
+                Ok(AstNode::Dataframe(series_exps))
             }
         }
         Rule::Matrix => {
@@ -658,7 +660,7 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
     let mut from: AstNode = AstNode::Skip;
     let mut filters: Vec<AstNode> = Vec::new();
     let mut sorts: Vec<AstNode> = Vec::new();
-    let mut take = None;
+    let mut take = AstNode::Skip;
     while let Some(some_pair) = pairs.next() {
         match some_pair.as_rule() {
             Rule::SelectOp | Rule::UpdateOp | Rule::DeleteOp => {
@@ -694,12 +696,7 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                     })
                 }
             }
-            Rule::TakeOp => {
-                take = Some(Box::new(parse_exp(
-                    some_pair.into_inner().next().unwrap(),
-                    source_id,
-                )?))
-            }
+            Rule::TakeOp => take = parse_exp(some_pair.into_inner().next().unwrap(), source_id)?,
             unexpected_exp => {
                 return Err(raise_error(
                     format!("Unexpected sql: {:?}", unexpected_exp),
@@ -715,7 +712,7 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         from: Box::new(from),
         filters,
         sorts,
-        take,
+        take: Box::new(take),
     })
 }
 

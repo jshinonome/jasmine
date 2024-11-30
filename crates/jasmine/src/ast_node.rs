@@ -7,7 +7,6 @@ pub enum AstNode {
     Fn {
         stmts: Vec<AstNode>,
         arg_names: Vec<String>,
-        args: Vec<AstNode>,
         fn_body: String,
         start: usize,
         source_id: usize,
@@ -43,6 +42,8 @@ pub enum AstNode {
     Call {
         f: Box<AstNode>,
         args: Vec<AstNode>,
+        start: usize,
+        source_id: usize,
     },
     If {
         cond: Box<AstNode>,
@@ -76,7 +77,7 @@ pub enum AstNode {
         groups: Vec<AstNode>,
         ops: Vec<AstNode>,
         sorts: Vec<AstNode>,
-        take: Option<Box<AstNode>>,
+        take: Box<AstNode>,
     },
     Skip,
 }

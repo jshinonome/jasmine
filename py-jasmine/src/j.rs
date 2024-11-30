@@ -8,7 +8,7 @@ use pyo3::{
 };
 use pyo3_polars::{PyDataFrame, PySeries};
 
-use crate::error::JasmineError;
+use crate::error::PyJasmineErr;
 
 #[pyclass]
 pub struct JObj {
@@ -51,7 +51,7 @@ impl JObj {
                 Ok(py_dict.into())
             }
             J::DataFrame(data_frame) => Ok(PyDataFrame(data_frame.clone()).into_py(py)),
-            J::Err(v) => Err(JasmineError::new_err(v.to_string()).into()),
+            J::Err(v) => Err(PyJasmineErr::new_err(v.to_string()).into()),
         }
     }
 }
