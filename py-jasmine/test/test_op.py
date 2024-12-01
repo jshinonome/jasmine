@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 
 from jasminum.context import Context
@@ -10,7 +12,8 @@ from jasminum.j import J, JType
     "src,expect",
     [
         ("1+1", J(2, JType.INT)),
-        ("2024-10-23+00:12:34.5", J(1729642354500000000, JType.TIMESTAMP)),
+        ("2024-10-23+1D00:12:34.5", J(date(2024, 10, 24))),
+        ("2024-10-23D+0D00:12:34.5", J.from_nanos(1729642354500000000, "UTC")),
     ],
 )
 def test_simple_src(src, expect):

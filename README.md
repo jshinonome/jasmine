@@ -174,3 +174,11 @@ f2(var1) each var2
 // apply each for 2nd param
 f2(,var2) each var1
 ```
+
+|           | date | time | datetime | timestamp | duration  |
+| --------- | ---- | ---- | -------- | --------- | --------- |
+| date      | -    | -    | -        | -         | date      |
+| time      | -    | -    | -        | -         | -         |
+| datetime  | -    | -    | -        | -         | duration  |
+| timestamp | -    | -    | -        | -         | timestamp |
+| duration  | date | -    | datetime | timestamp | duration  |

@@ -8,16 +8,16 @@ use polars::{
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum J {
-    Boolean(bool),  // -1
-    I64(i64),       // -5
-    Date(i32),      // -6 start from 1970.01.01
-    Time(i64),      // -7 00:00:00.0 - 23:59:59.999999999
-    Datetime(i64),  // -8 start from 1970.01.01T00:00:00.0
-    Timestamp(i64), // -9 start from 1970.01.01D00:00:00.0
-    Duration(i64),  // -10
-    F64(f64),       // -12
-    String(String), // -13
-    Symbol(String), // -14
+    Boolean(bool),                           // -1
+    I64(i64),                                // -5
+    Date(i32),                               // -6 start from 1970.01.01
+    Time(i64),                               // -7 00:00:00.0 - 23:59:59.999999999
+    Datetime { ms: i64, timezone: String },  // -8 start from 1970.01.01T00:00:00.0
+    Timestamp { ns: i64, timezone: String }, // -9 start from 1970.01.01D00:00:00.0
+    Duration(i64),                           // -10
+    F64(f64),                                // -12
+    String(String),                          // -13
+    Symbol(String),                          // -14
 
     None, // 0
 
@@ -41,11 +41,17 @@ impl J {
             J::Date(s) => Ok(Series::new("".into(), vec![*s])
                 .cast(&DataType::Date)
                 .unwrap()),
-            J::Timestamp(s) => Ok(Series::new("".into(), vec![*s])
-                .cast(&DataType::Datetime(TimeUnit::Nanoseconds, None))
+            J::Timestamp { ns, timezone } => Ok(Series::new("".into(), vec![*ns])
+                .cast(&DataType::Datetime(
+                    TimeUnit::Nanoseconds,
+                    Some(timezone.into()),
+                ))
                 .unwrap()),
-            J::Datetime(s) => Ok(Series::new("".into(), vec![*s])
-                .cast(&DataType::Datetime(TimeUnit::Milliseconds, None))
+            J::Datetime { ms, timezone } => Ok(Series::new("".into(), vec![*ms])
+                .cast(&DataType::Datetime(
+                    TimeUnit::Milliseconds,
+                    Some(timezone.into()),
+                ))
                 .unwrap()),
             J::Time(s) => Ok(Series::new("".into(), vec![*s])
                 .cast(&DataType::Time)
@@ -89,8 +95,8 @@ impl J {
             J::I64(_) => "i64".to_owned(),
             J::F64(_) => "f64".to_owned(),
             J::Date(_) => "date".to_owned(),
-            J::Timestamp(_) => "timestamp".to_owned(),
-            J::Datetime(_) => "datetime".to_owned(),
+            J::Timestamp { .. } => "timestamp".to_owned(),
+            J::Datetime { .. } => "datetime".to_owned(),
             J::Time(_) => "time".to_owned(),
             J::Duration(_) => "duration".to_owned(),
             J::Symbol(_) => "sym".to_owned(),

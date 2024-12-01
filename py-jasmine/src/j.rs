@@ -1,4 +1,5 @@
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate};
+use chrono_tz::Tz;
 use jasmine::j::J;
 use numpy::ToPyArray;
 use pyo3::{
@@ -19,6 +20,95 @@ pub struct JObj {
 
 #[pymethods]
 impl JObj {
+    pub fn as_series(&self) -> PyResult<PySeries> {
+        self.j
+            .into_series()
+            .map_err(|e| PyJasmineErr::new_err(e))
+            .map(|s| PySeries(s))
+    }
+
+    pub fn tz(&self) -> PyResult<&str> {
+        match &self.j {
+            J::Datetime { ms: _, timezone } => Ok(timezone),
+            J::Timestamp { ns: _, timezone } => Ok(timezone),
+            _ => Err(PyJasmineErr::new_err(format!(
+                "timezone only available for 'datetime' and 'timestamp', got {}",
+                self.j.get_type_name()
+            ))),
+        }
+    }
+
+    #[new]
+    fn new_temporal(num: i64, timezone: &str, unit: &str) -> Self {
+        if unit == "ms" {
+            Self {
+                j: J::Datetime {
+                    ms: num,
+                    timezone: timezone.to_owned(),
+                },
+                j_type: JType::Datetime as u8,
+            }
+        } else {
+            Self {
+                j: J::Timestamp {
+                    ns: num,
+                    timezone: timezone.to_owned(),
+                },
+                j_type: JType::Datetime as u8,
+            }
+        }
+    }
+
+    pub fn format_temporal(&self) -> PyResult<String> {
+        match &self.j {
+            J::Datetime { ms, timezone } => {
+                let tz: Tz = timezone.parse().unwrap();
+                Ok(DateTime::from_timestamp_millis(*ms)
+                    .unwrap()
+                    .with_timezone(&tz)
+                    .to_string())
+            }
+            J::Timestamp { ns, timezone } => {
+                let tz = timezone.parse::<Tz>().unwrap();
+                Ok(DateTime::from_timestamp_nanos(*ns)
+                    .with_timezone(&tz)
+                    .to_string())
+            }
+            _ => Err(PyJasmineErr::new_err(format!(
+                "format temporal only available for 'datetime' and 'timestamp', got {}",
+                self.j.get_type_name()
+            ))),
+        }
+    }
+
+    pub fn with_timezone(&self, timezone: &str) -> PyResult<JObj> {
+        timezone
+            .parse::<Tz>()
+            .map_err(|e| PyJasmineErr::new_err(e.to_string()))
+            .unwrap();
+
+        match &self.j {
+            J::Datetime { ms, timezone } => Ok(JObj {
+                j: J::Datetime {
+                    ms: *ms,
+                    timezone: timezone.to_string(),
+                },
+                j_type: self.j_type,
+            }),
+            J::Timestamp { ns, timezone } => Ok(JObj {
+                j: J::Timestamp {
+                    ns: *ns,
+                    timezone: timezone.to_string(),
+                },
+                j_type: self.j_type,
+            }),
+            _ => Err(PyJasmineErr::new_err(format!(
+                "with timezone only available for 'datetime' and 'timestamp', got {}",
+                self.j.get_type_name()
+            ))),
+        }
+    }
+
     pub fn as_py(&self, py: Python<'_>) -> PyResult<PyObject> {
         match &self.j {
             J::Boolean(v) => Ok(v.into_py(py)),
@@ -27,8 +117,8 @@ impl JObj {
                 .unwrap()
                 .to_object(py)),
             J::Time(v) => Ok(v.into_py(py)),
-            J::Datetime(v) => Ok(v.into_py(py)),
-            J::Timestamp(v) => Ok(v.into_py(py)),
+            J::Datetime { ms, timezone: _ } => Ok(ms.into_py(py)),
+            J::Timestamp { ns, timezone: _ } => Ok(ns.into_py(py)),
             J::Duration(v) => Ok(v.into_py(py)),
             J::F64(v) => Ok(v.into_py(py)),
             J::String(v) => Ok(v.into_py(py)),
@@ -64,8 +154,8 @@ impl JObj {
             J::I64(_) => JType::I64,
             J::Date(_) => JType::Date,
             J::Time(_) => JType::Time,
-            J::Datetime(_) => JType::Datetime,
-            J::Timestamp(_) => JType::Timestamp,
+            J::Datetime { .. } => JType::Datetime,
+            J::Timestamp { .. } => JType::Timestamp,
             J::Duration(_) => JType::Duration,
             J::F64(_) => JType::F64,
             J::String(_) => JType::String,

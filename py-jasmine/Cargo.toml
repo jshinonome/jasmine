@@ -17,6 +17,7 @@ pyo3-polars = { version = "0.18.0", features = [
   "dtype-full",
 ] }
 chrono = "0.4.38"
+chrono-tz = "0.10.0"
 indexmap = "2.4.0"
 numpy = "0.21.0"
 

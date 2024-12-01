@@ -356,7 +356,7 @@ fn parse_list(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<R
         Rule::BinaryOp => Ok(AstNode::Op {
             op: pair.as_str().to_owned(),
             start: pair.as_span().start(),
-            source_id: source_id,
+            source_id,
         }),
         Rule::Exp => parse_exp(pair, source_id),
         _ => Err(raise_error(
@@ -619,13 +619,19 @@ fn parse_j(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
         Rule::Datetime => {
             let j = parse_datetime(pair.as_str())
                 .map_err(|e| raise_error(e.to_string(), pair.as_span()))
-                .map(|j| J::Datetime(j))?;
+                .map(|j| J::Datetime {
+                    ms: j,
+                    timezone: "UTC".to_owned(),
+                })?;
             Ok(AstNode::J(j))
         }
         Rule::Timestamp => {
             let j = parse_timestamp(pair.as_str())
                 .map_err(|e| raise_error(e.to_string(), pair.as_span()))
-                .map(|j| J::Timestamp(j))?;
+                .map(|j| J::Timestamp {
+                    ns: j,
+                    timezone: "UTC".to_owned(),
+                })?;
             Ok(AstNode::J(j))
         }
         Rule::Duration => {
@@ -815,17 +821,17 @@ pub fn parse_duration(duration: &str) -> Result<i64, String> {
             .parse::<i64>()
             .map_err(|_| err())
     } else if duration.ends_with("s") {
-        duration[..duration.len() - 2]
+        duration[..duration.len() - 1]
             .parse::<i64>()
             .map_err(|_| err())
             .map(|u| u * 1000_000_000)
     } else if duration.ends_with("m") {
-        duration[..duration.len() - 2]
+        duration[..duration.len() - 1]
             .parse::<i64>()
             .map_err(|_| err())
             .map(|u| u * 60_000_000_000)
     } else if duration.ends_with("h") {
-        duration[..duration.len() - 2]
+        duration[..duration.len() - 1]
             .parse::<i64>()
             .map_err(|_| err())
             .map(|u| u * 3_600_000_000_000)
@@ -834,17 +840,27 @@ pub fn parse_duration(duration: &str) -> Result<i64, String> {
     }
 }
 
-pub fn parse_datetime(datetime: &str) -> Result<i64, String> {
-    match chrono::NaiveDateTime::parse_from_str(datetime, "%Y-%m-%dT%H:%M:%S%.f") {
+pub fn parse_datetime(dt: &str) -> Result<i64, String> {
+    let datetime = if dt.ends_with("T") {
+        format!("{}00:00:00.0", dt)
+    } else {
+        dt.to_owned()
+    };
+    match chrono::NaiveDateTime::parse_from_str(&datetime, "%Y-%m-%dT%H:%M:%S%.f") {
         Ok(d) => Ok(d.and_utc().timestamp_millis()),
-        Err(_) => Err(format!("Not a valid datetime, {}", datetime)),
+        Err(_) => Err(format!("Not a valid datetime, {}", dt)),
     }
 }
 
-pub fn parse_timestamp(datetime: &str) -> Result<i64, String> {
-    match chrono::NaiveDateTime::parse_from_str(datetime, "%Y-%m-%dD%H:%M:%S%.f") {
+pub fn parse_timestamp(ts: &str) -> Result<i64, String> {
+    let timestamp = if ts.ends_with("D") {
+        format!("{}00:00:00.0", ts)
+    } else {
+        ts.to_owned()
+    };
+    match chrono::NaiveDateTime::parse_from_str(&timestamp, "%Y-%m-%dD%H:%M:%S%.f") {
         Ok(d) => Ok(d.and_utc().timestamp_nanos_opt().unwrap_or(0)),
-        Err(_) => Err(format!("Not a valid datetime, {}", datetime)),
+        Err(_) => Err(format!("Not a valid timestamp, {}", ts)),
     }
 }
 

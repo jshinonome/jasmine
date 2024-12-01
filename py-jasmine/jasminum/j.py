@@ -1,6 +1,8 @@
 from datetime import date, datetime, timezone
 from enum import Enum
 
+import polars as pl
+
 from .ast import JObj
 from .exceptions import JasmineEvalException
 from .j_fn import JFn
@@ -30,14 +32,18 @@ class JType(Enum):
 
 
 class J:
-    data: any
+    data: JObj | date | int | float | pl.Series | pl.DataFrame
     j_type: JType
 
     def __init__(self, data, j_type=JType.NONE) -> None:
         self.data = data
         if isinstance(data, JObj):
-            self.data = data.as_py()
             self.j_type = JType(data.j_type)
+            match self.j_type:
+                case JType.DATETIME | JType.TIMESTAMP:
+                    self.data = data
+                case _:
+                    self.data = data.as_py()
         elif isinstance(data, JFn):
             self.j_type = JType.FN
         elif isinstance(data, date):
@@ -59,16 +65,9 @@ class J:
                 ss = ss % 60
                 return f"{HH:02d}:{mm:02d}:{ss:02d}:{sss:09d}"
             case JType.DATETIME:
-                return datetime.fromtimestamp(
-                    self.data / 1000, timezone.utc
-                ).isoformat()[:-9]
+                return self.data.format_temporal()
             case JType.TIMESTAMP:
-                ns = self.data % 1000000000
-                t = datetime.fromtimestamp(
-                    self.data // 1000000000, timezone.utc
-                ).isoformat()[:-6]
-                t = t.replace("T", "D")
-                return f"{t}.{ns:09d}"
+                return self.data.format_temporal()
             case JType.DURATION:
                 neg = "" if self.data >= 0 else "-"
                 ns = abs(self.data)
@@ -90,26 +89,58 @@ class J:
     def int(self) -> int:
         return int(self.data)
 
+    def days(self) -> int:
+        if self.j_type == JType.DURATION:
+            return self.data // 86_400_000_000_000
+        else:
+            raise JasmineEvalException(
+                "requires 'duration' for 'days', got %s" % repr(self.j_type)
+            )
+
     def days_from_epoch(self) -> int:
         if self.j_type == JType.DATE:
             return self.data.toordinal() - 719_163
         else:
             raise JasmineEvalException(
-                "Failed to refer 'days' from %s" % repr(self.j_type)
+                "requires 'date' for 'days from epoch', got %s" % repr(self.j_type)
             )
 
     def nanos_from_epoch(self) -> int:
         if self.j_type == JType.DATE:
             return (self.data.toordinal() - 719_163) * 86_400_000_000_000
         if self.j_type == JType.TIMESTAMP:
-            return self.data
+            return self.data.as_py()
         else:
             raise JasmineEvalException(
-                "Failed to refer 'nanos' from %s" % repr(self.j_type)
+                "requires 'date' or 'timestamp' for 'nanos from epoch', got %s"
+                % repr(self.j_type)
             )
 
     def __eq__(self, value: object) -> bool:
         if isinstance(value, J):
-            return self.data == value.data and self.j_type == value.j_type
+            if self.j_type != value.j_type:
+                return False
+            match self.j_type:
+                case JType.DATETIME | JType.TIMESTAMP:
+                    return (
+                        self.data.tz() == self.data.tz()
+                        and self.data.as_py() == self.data.as_py()
+                    )
+                case _:
+                    return self.data == value.data
         else:
             return False
+
+    def with_timezone(self, timezone: str):
+        return J(self.data.with_timezone(timezone), self.j_type)
+
+    @classmethod
+    def from_nanos(cls, ns: int, timezone: str):
+        return J(JObj(ns, timezone, "ns"))
+
+    @classmethod
+    def from_millis(cls, ms: int, timezone: str):
+        return J(JObj(ms, timezone, "ms"))
+
+    def tz(self) -> str:
+        return self.data.tz()
