@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime, timezone
 from enum import Enum
 
 from .ast import JObj
@@ -59,9 +59,18 @@ class J:
                 ss = ss % 60
                 return f"{HH:02d}:{mm:02d}:{ss:02d}:{sss:09d}"
             case JType.DATETIME:
-                pass
+                return (
+                    datetime.fromtimestamp(self.data / 1000, timezone.utc)
+                    .isoformat()
+                    .removesuffix("000")
+                )
             case JType.TIMESTAMP:
-                pass
+                ns = self.data % 1000000000
+                t = datetime.fromtimestamp(
+                    self.data // 1000000000, timezone.utc
+                ).isoformat()
+                t = t.replace("T", "D")
+                return f"{t}.{ns:09d}"
             case JType.DURATION:
                 neg = "" if self.data >= 0 else "-"
                 ns = abs(self.data)
@@ -94,7 +103,15 @@ class J:
     def nanos_from_epoch(self) -> int:
         if self.j_type == JType.DATE:
             return (self.data.toordinal() - 719_163) * 86_400_000_000_000
+        if self.j_type == JType.TIMESTAMP:
+            return self.data
         else:
             raise JasmineEvalException(
                 "Failed to refer 'nanos' from %s" % repr(self.j_type)
             )
+
+    def __eq__(self, value: object) -> bool:
+        if isinstance(value, J):
+            return self.data == value.data and self.j_type == value.j_type
+        else:
+            return False
