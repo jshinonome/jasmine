@@ -18,9 +18,25 @@ def add(arg1: J, arg2: J) -> J:
             arg2.j_type in (JType.TIME, JType.DURATION)
         ):
             return J(arg1.nanos_from_epoch() + arg2.data, JType.TIMESTAMP)
-        elif (arg1.j_type.value <= 2 and arg2.j_type <= 7) or (
-            arg2.j_type == JType.DATE
-            and (arg1.j_type == JType.TIME or arg1.j_type == JType.DURATION)
+        elif arg1.j_type == JType.DATETIME and (
+            arg2.j_type in (JType.TIME, JType.DURATION)
+        ):
+            return J(arg1.data + arg2.data // 1000000, JType.DATETIME)
+        elif arg1.j_type in (JType.TIME, JType.DURATION) and arg2.j_type in (
+            JType.TIME,
+            JType.DURATION,
+        ):
+            return J(arg1.data + arg2.data, JType.DURATION)
+        elif (
+            (arg1.j_type.value <= 2 and arg2.j_type <= 7)
+            or (
+                arg2.j_type in (JType.DATE, JType.TIMESTAMP)
+                and arg1.j_type in (JType.TIME, JType.DURATION)
+            )
+            or (
+                arg2.j_type == JType.DATETIME
+                and (arg1.j_type in (JType.TIME, JType.DURATION))
+            )
         ):
             return add(arg2, arg1)
         else:

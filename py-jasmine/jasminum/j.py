@@ -59,16 +59,14 @@ class J:
                 ss = ss % 60
                 return f"{HH:02d}:{mm:02d}:{ss:02d}:{sss:09d}"
             case JType.DATETIME:
-                return (
-                    datetime.fromtimestamp(self.data / 1000, timezone.utc)
-                    .isoformat()
-                    .removesuffix("000")
-                )
+                return datetime.fromtimestamp(
+                    self.data / 1000, timezone.utc
+                ).isoformat()[:-9]
             case JType.TIMESTAMP:
                 ns = self.data % 1000000000
                 t = datetime.fromtimestamp(
                     self.data // 1000000000, timezone.utc
-                ).isoformat()
+                ).isoformat()[:-6]
                 t = t.replace("T", "D")
                 return f"{t}.{ns:09d}"
             case JType.DURATION:
