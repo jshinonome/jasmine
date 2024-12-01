@@ -44,7 +44,7 @@ def import_path(path: str, engine: Engine):
     pass
 
 
-def eval_src(source_code: str, source_id: int, engine: Engine, ctx: Context):
+def eval_src(source_code: str, source_id: int, engine: Engine, ctx: Context) -> J:
     nodes = parse_source_code(source_code, source_id)
     res = J(None, JType.NONE)
     for node in nodes:
@@ -105,7 +105,7 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
     if isinstance(node, Ast):
         node = downcast_ast_node(node)
     if isinstance(node, JObj):
-        return J(node.as_py(), node.j_type)
+        return J(node, node.j_type)
     if isinstance(node, AstAssign):
         res = eval_node(node.exp, engine, ctx, is_in_fn)
         if is_in_fn and "." not in node.id:

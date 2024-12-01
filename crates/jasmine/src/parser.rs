@@ -798,13 +798,18 @@ pub fn parse_duration(duration: &str) -> Result<i64, String> {
     if duration.contains("D") {
         let v: Vec<&str> = duration.split("D").collect();
         let time = v[1];
+        let is_neg = duration.starts_with("-");
         let day = v[0].parse::<i64>().map_err(|_| err())?;
         let nano = if time == "" {
             0
         } else {
             parse_time(time).map_err(|_| err())?
         };
-        Ok(day * NS_IN_DAY + nano)
+        Ok(if is_neg {
+            day * NS_IN_DAY - nano
+        } else {
+            day * NS_IN_DAY + nano
+        })
     } else if duration.ends_with("ns") {
         duration[..duration.len() - 2]
             .parse::<i64>()
@@ -860,6 +865,7 @@ mod tests {
 
     #[test]
     fn test_parse_duration() {
+        assert_eq!(parse_duration("-0D23:59:59").unwrap(), -86399000000000);
         assert_eq!(parse_duration("0D23:59:59").unwrap(), 86399000000000);
         assert_eq!(parse_duration("1D23:59:59").unwrap(), 172799000000000);
         assert_eq!(parse_duration("100D23:59:59").unwrap(), 8726399000000000);

@@ -2,6 +2,7 @@ from datetime import date
 from enum import Enum
 
 from .ast import JObj
+from .exceptions import JasmineEvalException
 from .j_fn import JFn
 
 
@@ -35,9 +36,12 @@ class J:
     def __init__(self, data, j_type=JType.NONE) -> None:
         self.data = data
         if isinstance(data, JObj):
+            self.data = data.as_py()
             self.j_type = JType(data.j_type)
         elif isinstance(data, JFn):
             self.j_type = JType.FN
+        elif isinstance(data, date):
+            self.j_type = JType.DATE
         else:
             self.j_type = j_type
 
@@ -47,8 +51,50 @@ class J:
                 return f"{self.data}"
             case JType.DATE:
                 return self.data.isoformat()
+            case JType.TIME:
+                sss = self.data % 1000000000
+                ss = self.data // 1000000000
+                HH = ss // 3600
+                mm = ss % 3600 // 60
+                ss = ss % 60
+                return f"{HH:02d}:{mm:02d}:{ss:02d}:{sss:09d}"
+            case JType.DATETIME:
+                pass
+            case JType.TIMESTAMP:
+                pass
+            case JType.DURATION:
+                neg = "" if self.data >= 0 else "-"
+                ns = abs(self.data)
+                sss = ns % 1000000000
+                ss = ns // 1000000000
+                mm = ss // 60
+                ss = ss % 60
+                HH = mm // 60
+                mm = mm % 60
+                days = HH // 24
+                HH = HH % 24
+                return f"{neg}{days}D{HH:02d}:{mm:02d}:{ss:02d}:{sss:09d}"
             case _:
                 return repr(self)
 
     def __repr__(self) -> str:
         return "<%s - %s>" % (self.j_type.name, self.data)
+
+    def int(self) -> int:
+        return int(self.data)
+
+    def days_from_epoch(self) -> int:
+        if self.j_type == JType.DATE:
+            return self.data.toordinal() - 719_163
+        else:
+            raise JasmineEvalException(
+                "Failed to refer 'days' from %s" % repr(self.j_type)
+            )
+
+    def nanos_from_epoch(self) -> int:
+        if self.j_type == JType.DATE:
+            return (self.data.toordinal() - 719_163) * 86_400_000_000_000
+        else:
+            raise JasmineEvalException(
+                "Failed to refer 'nanos' from %s" % repr(self.j_type)
+            )
