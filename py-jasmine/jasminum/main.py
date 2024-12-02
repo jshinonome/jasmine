@@ -13,7 +13,18 @@ def main():
     text = colored("j* ", "magenta")
     while src != "exit":
         try:
-            src = input(text)
+            src = []
+            line = input(text)
+            if line == "":
+                continue
+            else:
+                src.append(line)
+            while True:
+                line = input()
+                if not line:
+                    break
+                src.append(line)
+            src = "\n".join(src)
             engine.sources[0] = (src, "")
             res = eval_src(src, 0, engine, Context(dict()))
             cprint(res, "light_green")

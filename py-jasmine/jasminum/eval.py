@@ -113,6 +113,7 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
             ctx.locals[node.id] = res
         else:
             engine.globals[node.id] = res
+        return res
     elif isinstance(node, AstId):
         if node.id in engine.builtins:
             return engine.builtins[node.id]
