@@ -104,14 +104,28 @@ def downcast_ast_node(node: Ast):
 def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
     if isinstance(node, Ast):
         node = downcast_ast_node(node)
+
     if isinstance(node, JObj):
         return J(node, node.j_type)
-    if isinstance(node, AstAssign):
+    elif isinstance(node, AstAssign):
         res = eval_node(node.exp, engine, ctx, is_in_fn)
         if is_in_fn and "." not in node.id:
             ctx.locals[node.id] = res
         else:
-            engine.globals[AstAssign.id] = res
+            engine.globals[node.id] = res
+    elif isinstance(node, AstId):
+        if node.id in engine.builtins:
+            return engine.builtins[node.id]
+        elif node.id in ctx.locals:
+            return ctx.locals[node.id]
+        elif node.id in engine.globals:
+            return engine.globals[node.id]
+        else:
+            raise JasmineEvalException(
+                get_trace(
+                    engine, node.source_id, node.start, "'%s' is not defined" % node.id
+                )
+            )
     elif isinstance(node, AstBinOp):
         op = downcast_ast_node(node.op)
         op_fn = eval_node(op, engine, ctx, is_in_fn)

@@ -1,5 +1,6 @@
 from datetime import date, datetime, timezone
 from enum import Enum
+from typing import Callable
 
 import polars as pl
 
@@ -44,6 +45,8 @@ class J:
                     self.data = data
                 case _:
                     self.data = data.as_py()
+        elif isinstance(data, pl.Series):
+            self.j_type = JType.SERIES
         elif isinstance(data, JFn):
             self.j_type = JType.FN
         elif isinstance(data, date):
@@ -53,7 +56,7 @@ class J:
 
     def __str__(self) -> str:
         match JType(self.j_type):
-            case JType.INT | JType.FLOAT:
+            case JType.INT | JType.FLOAT | JType.SERIES | JType.DATAFRAME:
                 return f"{self.data}"
             case JType.DATE:
                 return self.data.isoformat()
