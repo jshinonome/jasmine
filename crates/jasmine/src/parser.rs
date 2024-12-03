@@ -411,7 +411,7 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
     let span = pair.as_span();
     let len = pair.clone().into_inner().len();
     for scalar in pair.clone().into_inner() {
-        if !scalar.as_str().is_empty() || scalar.as_str() != "none" {
+        if !scalar.as_str().is_empty() && scalar.as_str() != "none" {
             first_scalar = scalar.as_str();
             break;
         }
@@ -427,8 +427,8 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
         r"^-?\d+i32$",
         r"^\d+u64$",
         r"^-?\d+(i64)?$",
-        r"^-?\d*\.?\d*f32$",
-        r"^-?\d*\.?\d*(f64)?$",
+        r"^-?([0-9]+([.][0-9]*)?|[.][0-9]+)f32$",
+        r"^-?([0-9]+([.][0-9]*)?|[.][0-9]+)(f64)?$",
         r"^\d{4}-\d{2}-\d{2}$",
         r"^\d{2}:\d{2}:\d{2}\.\d{0,9}$",
         r"^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2}(\.\d{0,3})?)?$",
@@ -643,7 +643,7 @@ fn parse_j(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
         Rule::Date => {
             let j = parse_date(pair.as_str())
                 .map_err(|e| raise_error(e.to_string(), pair.as_span()))
-                .map(|j| J::Date(j))?;
+                .map(|j| J::Date(j - UNIX_EPOCH_DAY))?;
             Ok(AstNode::J(j))
         }
         Rule::Time => {

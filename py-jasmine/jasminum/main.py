@@ -10,11 +10,10 @@ def main():
     engine = Engine()
     HistoryConsole()
     src = ""
-    text = colored("j* ", "magenta")
     while src != "exit":
         try:
             src = []
-            line = input(text)
+            line = input("j* ")
             if line == "":
                 continue
             else:

@@ -23,6 +23,11 @@ tasks:
     cmds:
       - unset CONDA_PREFIX && source ../{{.PY}}/activate && maturin develop --strip
 
+  test-py:
+    dir: py-jasmine
+    cmds:
+      - pytest -vvs
+
   build-py-debug-opt:
     dir: py-jasmine
     cmds:

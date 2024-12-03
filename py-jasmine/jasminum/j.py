@@ -46,6 +46,8 @@ class J:
                     self.data = data.as_py()
         elif isinstance(data, pl.Series):
             self.j_type = JType.SERIES
+        elif isinstance(data, pl.DataFrame):
+            self.j_type = JType.DATAFRAME
         elif isinstance(data, JFn):
             self.j_type = JType.FN
         elif isinstance(data, date):

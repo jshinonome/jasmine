@@ -80,11 +80,12 @@ a collection of series
 
 ```
 // empty series
-df[series1: `i32$[], series2: `f32$[]]
+df[series1= `i32$[], series2= `f32$[]]
 
 
 // non-empty series
-df[series1: `i32$[], series2: `f32$[none, 2, 3.0]]
+df[series1 = `i32$[ , , ], series2 = `f32$[none, 2.0, 3.0]]
+df[series1 = [0i32, , ], series2 = [none, 2.0, 3.0]]
 ```
 
 ### Matrix
