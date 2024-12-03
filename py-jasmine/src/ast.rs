@@ -385,6 +385,8 @@ impl Ast {
             ops,
             sorts,
             take,
+            source_id,
+            start,
         } = &self.0
         {
             Ok(AstSql {
@@ -395,6 +397,8 @@ impl Ast {
                 ops: ops.into_iter().map(|n| Ast(n.clone())).collect(),
                 sorts: sorts.into_iter().map(|n| Ast(n.clone())).collect(),
                 take: Ast(*take.clone()),
+                source_id: *source_id,
+                start: *start,
             })
         } else {
             Err(PyJasmineErr::new_err(format!(
@@ -544,4 +548,6 @@ pub struct AstSql {
     ops: Vec<Ast>,
     sorts: Vec<Ast>,
     take: Ast,
+    source_id: usize,
+    start: usize,
 }

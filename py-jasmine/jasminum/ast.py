@@ -54,6 +54,53 @@ class AstType(Enum):
     Skip = 20
 
 
+def downcast_ast_node(node: Ast):
+    ast_type = AstType(node.get_ast_type())
+    match ast_type:
+        case AstType.J:
+            return node.j()
+        case AstType.Fn:
+            return node.fn()
+        case AstType.UnaryOp:
+            return node.unary_op()
+        case AstType.BinOp:
+            return node.bin_op()
+        case AstType.Assign:
+            return node.assign()
+        case AstType.IndexAssign:
+            return node.index_assign()
+        case AstType.Op:
+            return node.op()
+        case AstType.Id:
+            return node.id()
+        case AstType.Call:
+            return node.call()
+        case AstType.If:
+            return node.if_exp()
+        case AstType.While:
+            return node.while_exp()
+        case AstType.Try:
+            return node.try_exp()
+        case AstType.Return:
+            return node.return_exp()
+        case AstType.Raise:
+            return node.raise_exp()
+        case AstType.Dataframe:
+            return node.dataframe()
+        case AstType.Matrix:
+            return node.matrix()
+        case AstType.Dict:
+            return node.dict()
+        case AstType.List:
+            return node.list()
+        case AstType.Series:
+            return node.series()
+        case AstType.Sql:
+            return node.sql()
+        case AstType.Skip:
+            return node.skip()
+
+
 all = [
     Ast,
     AstAssign,

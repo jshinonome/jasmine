@@ -78,6 +78,8 @@ pub enum AstNode {
         ops: Vec<AstNode>,
         sorts: Vec<AstNode>,
         take: Box<AstNode>,
+        source_id: usize,
+        start: usize,
     },
     Skip,
 }

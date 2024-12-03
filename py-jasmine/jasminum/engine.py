@@ -3,6 +3,7 @@ from typing import Callable
 
 import polars as pl
 
+from .ast import print_trace
 from .j import J
 from .j_fn import JFn
 from .operator import add
@@ -32,3 +33,7 @@ class Engine:
             list(fn.__code__.co_varnames),
             fn.__code__.co_argcount,
         )
+
+    def get_trace(self, source_id: int, pos: int, msg: str) -> str:
+        source, path = self.sources.get(source_id)
+        return print_trace(source, path, pos, msg)

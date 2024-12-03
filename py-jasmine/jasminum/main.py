@@ -40,7 +40,7 @@ def main():
             else:
                 src.append(line)
             while True:
-                line = input()
+                line = input("*   ")
                 if not line:
                     break
                 src.append(line)

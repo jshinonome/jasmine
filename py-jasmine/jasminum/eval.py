@@ -25,19 +25,15 @@ from .ast import (
     AstUnaryOp,
     AstWhile,
     JObj,
+    downcast_ast_node,
     parse_source_code,
-    print_trace,
 )
 from .context import Context
 from .engine import Engine
+from .eval_sql import eval_sql
 from .exceptions import JasmineEvalException
 from .j import J, JType
 from .j_fn import JFn
-
-
-def get_trace(engine: Engine, source_id: int, pos: int, msg: str) -> str:
-    source, path = engine.sources.get(source_id)
-    return print_trace(source, path, pos, msg)
 
 
 def import_path(path: str, engine: Engine):
@@ -52,53 +48,6 @@ def eval_src(source_code: str, source_id: int, engine: Engine, ctx: Context) -> 
         if res == JType.RETURN:
             return res
     return res
-
-
-def downcast_ast_node(node: Ast):
-    ast_type = AstType(node.get_ast_type())
-    match ast_type:
-        case AstType.J:
-            return node.j()
-        case AstType.Fn:
-            return node.fn()
-        case AstType.UnaryOp:
-            return node.unary_op()
-        case AstType.BinOp:
-            return node.bin_op()
-        case AstType.Assign:
-            return node.assign()
-        case AstType.IndexAssign:
-            return node.index_assign()
-        case AstType.Op:
-            return node.op()
-        case AstType.Id:
-            return node.id()
-        case AstType.Call:
-            return node.call()
-        case AstType.If:
-            return node.if_exp()
-        case AstType.While:
-            return node.while_exp()
-        case AstType.Try:
-            return node.try_exp()
-        case AstType.Return:
-            return node.return_exp()
-        case AstType.Raise:
-            return node.raise_exp()
-        case AstType.Dataframe:
-            return node.dataframe()
-        case AstType.Matrix:
-            return node.matrix()
-        case AstType.Dict:
-            return node.dict()
-        case AstType.List:
-            return node.list()
-        case AstType.Series:
-            return node.series()
-        case AstType.Sql:
-            return node.sql()
-        case AstType.Skip:
-            return node.skip()
 
 
 def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
@@ -123,8 +72,8 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
             return engine.globals[node.id]
         else:
             raise JasmineEvalException(
-                get_trace(
-                    engine, node.source_id, node.start, "'%s' is not defined" % node.id
+                engine.get_trace(
+                    node.source_id, node.start, "'%s' is not defined" % node.id
                 )
             )
     elif isinstance(node, AstBinOp):
@@ -148,20 +97,21 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False):
             return engine.globals.get(node.op)
         else:
             raise JasmineEvalException(
-                get_trace(
-                    engine, node.source_id, node.start, "'%s' is not defined" % node.op
+                engine.get_trace(
+                    node.source_id, node.start, "'%s' is not defined" % node.op
                 )
             )
     elif isinstance(node, AstFn):
         raise JasmineEvalException("not yet implemented")
+    elif isinstance(node, AstSql):
+        return eval_sql(node, engine, ctx, node.source_id, node.start)
     else:
         raise JasmineEvalException("not yet implemented - %s" % node)
 
 
 def eval_fn(fn: JFn, engine: Engine, ctx: Context, source_id: int, start: int, *args):
     if fn.arg_num < len(args):
-        raise get_trace(
-            engine,
+        raise engine.get_trace(
             source_id,
             start,
             "takes %s arguments but %s were given" % (fn.arg_num, len(args)),

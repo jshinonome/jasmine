@@ -694,6 +694,7 @@ fn parse_j(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
 }
 
 fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
+    let span = pair.as_span();
     let mut pairs = pair.into_inner();
     // select, update, exec, delete
     let mut op = "select";
@@ -755,6 +756,8 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         filters,
         sorts,
         take: Box::new(take),
+        source_id,
+        start: span.start(),
     })
 }
 
