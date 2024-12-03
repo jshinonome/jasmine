@@ -30,7 +30,12 @@ jasminum
 | cat       | `` `cat` ``                          |
 | null      | none                                 |
 
-### Mixed List
+`datetime` and `timestamp` are with timezone information. To convert a timezone
+
+- `` t ~as `Asia/Hong_Kong` ``
+- `` as(t, `Asia/Hong_Kong`) ``
+
+### List(Mixed Data Types)
 
 ```
 l[1, none, `cat]
@@ -61,12 +66,12 @@ l[1, none, `cat]
 | unknown  | Unknown     |
 
 ```
-// empty series, s(name)
-`i8$s[]
+// empty series
+`i8$[]
 
 // non-empty series
-s[true, none, false]
-s[0i8, 1, 2]
+[true, none, false]
+[0i8, 1, 2]
 ```
 
 ### Dataframe
@@ -75,11 +80,11 @@ a collection of series
 
 ```
 // empty series
-d[series1: `i32$s[], series2: `f32$s[]]
+df[series1: `i32$[], series2: `f32$[]]
 
 
 // non-empty series
-d[series1: `i32$s[], series2: `f32$s[none, 2, 3.0]]
+df[series1: `i32$[], series2: `f32$[none, 2, 3.0]]
 ```
 
 ### Matrix
@@ -94,7 +99,7 @@ x[[], [], []]
 x[[1, 2], [2, 3], [4, None]]
 ```
 
-### Dictionary(Hashmap)
+### Dictionary
 
 ```
 // empty map
@@ -102,13 +107,14 @@ x[[1, 2], [2, 3], [4, None]]
 
 // non-empty map
 {a:1, b:2, c:3}
-m[[`a, `b, `c], [1, none, true]]
-m[]
+d[[`a, `b, `c], [1, none, true]]
+d[]
 ```
 
 ### Variable Name
 
-Not allow single char variable name `(ASCII_ALPHANUMERIC | CJK){2,}`
+- Starts with alphabets, the var name can include alphabets, number and "\_"
+- Starts with CJK character, the var name can include CJK character, alphabets, number and "\_"
 
 ### Control Flow
 
@@ -141,10 +147,12 @@ fn(param1, param2){
 from table
   [ filter {condition[,condition]}]
   [ group {series1, series2, ...}]
-  [ select {series1, series2, ...}
-  | update {series1, series2, ...}
-  | delete {series1, series2, ...}]
-  [ sort {series1, series2, ...}]
+  [
+    select {series1, series2, ...}
+    | update {series1, series2, ...}
+    | delete {series1, series2, ...}
+  ]
+  [ sort {series1, -series2, ...}]
   [ take number]
 
 select(dataframe, (), (), ())
@@ -155,7 +163,7 @@ delete(dataframe, (), (), ())
 ### Assignment
 
 ```
-var1: expression1
+var1= expression1
 ```
 
 ### Unary Operation

@@ -39,7 +39,7 @@ fn parse_comments() {
 
 #[test]
 fn parse_case00() {
-    let code = "total = sum s[1.0,2.0]*3";
+    let code = "total = sum [1.0,2.0]*3";
     let pairs = JParser::parse(Rule::Program, code).unwrap();
     let binding = pretty_format_rules(pairs);
     let actual: Vec<&str> = binding.split("\n").collect();
@@ -128,10 +128,10 @@ fn parse_case01() {
 #[test]
 fn parse_case02() {
     let code = "
-    qty = s[7i16,8,9];
-    t = d[sym = s[`a,`b,`b], col1 = s[1, 2, 3], col2 = s[1.0, 2.0, 3.0], s[4, 5, 6], qty];
-    df = from t filter {sym==`a`} group {sym} select { sum col1+col2, newCol= col2 };
-    count df
+    qty = [7i16,8,9];
+    df0 = df[sym = [`a,`b,`b], col1 = [1, 2, 3], col2 = [1.0, 2.0, 3.0], [4, 5, 6], qty];
+    df0 = from t filter {sym==`a`} group {sym} select { sum col1+col2, newCol= col2 };
+    count df0
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
         Ok(p) => p,
@@ -313,10 +313,10 @@ fn parse_case04() {
     let code = "
     d = {a: 1, b: 2, c: 3,};
     d2 = {a: 4, b: 5, c: 6};
-    d3 = m[[`a`,`b`,`c`], [7,8,9]];
+    d3 = d[[`a`,`b`,`c`], [7,8,9]];
     d(`d`) = 9;
     r1 = d2 (`c`);
-    d3(`c`) + sum d(s[`a`,`d`])
+    d3(`c`) + sum d([`a`,`d`])
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
         Ok(p) => p,
@@ -461,7 +461,7 @@ fn parse_case05() {
 #[test]
 fn parse_case06() {
     let code = "
-    nest(fn(x){x++sum -2#x}, s[1,1], 10)
+    nest(fn(x){x++sum -2#x}, [1,1], 10)
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
         Ok(p) => p,

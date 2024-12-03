@@ -176,7 +176,7 @@ SqlExp          =  { FromExp ~ FilterExp? ~ GroupExp? ~ (SelectOp | UpdateOp | D
 
 // -->SQL
 
-Dataframe = { "d" ~ "[" ~ SeriesExp ~ ("," ~ SeriesExp)* ~ ","? ~ "]" }
+Dataframe = { "df" ~ "[" ~ SeriesExp ~ ("," ~ SeriesExp)* ~ ","? ~ "]" }
 
 Row    = { "[" ~ (Exp ~ ("," ~ Exp)*)? ~ ","? ~ "]" }
 Matrix = { "x[" ~ Row* ~ "]" }
@@ -185,7 +185,7 @@ KeyValueExp = { Id ~ ":" ~ Exp }
 Keys        = { "[" ~ (Exp ~ ",")* ~ Exp? ~ "]" }
 Values      = { "[" ~ (Exp ~ ",")* ~ Exp? ~ "]" }
 Dict        = {
-    ("m" ~ "[" ~ (Keys ~ "," ~ Values)? ~ "]")
+    ("d" ~ "[" ~ (Keys ~ "," ~ Values)? ~ "]")
   | ("{" ~ (KeyValueExp ~ ",")* ~ KeyValueExp? ~ "}")
 }
 
@@ -207,10 +207,10 @@ Boolean   =  { ("true" | "false") }
 None      =  { "none" }
 Unknown   =  { (!("," | "]") ~ ANY)* }
 
-Series = { "s" ~ "[" ~ (Unknown ~ ",")* ~ Unknown? ~ "]" }
+Series = { "[" ~ (Unknown ~ ",")* ~ Unknown? ~ "]" }
 
 CJK        =  { HAN | HIRAGANA | KATAKANA | HANGUL | BOPOMOFO }
-Identifier = @{ (ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*) | (CJK ~ (ASCII_ALPHANUMERIC | CJK)*) }
+Identifier = @{ (ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*) | (CJK ~ (ASCII_ALPHANUMERIC | CJK | "_")*) }
 Keyword    =  { SqlKeyword | ControlKeyword }
 Id         = @{ (!Keyword ~ Identifier) | (Keyword ~ (ASCII_ALPHANUMERIC | "_")+) }
 GlobalId   = @{ Identifier ~ ("." ~ Identifier)* }
