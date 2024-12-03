@@ -1,6 +1,6 @@
 use chrono::{DateTime, NaiveDate};
 use chrono_tz::Tz;
-use jasmine::j::J;
+use jasmine::{j::J, UNIX_EPOCH_DAY};
 use numpy::ToPyArray;
 use pyo3::{
     pyclass, pymethods,
@@ -113,7 +113,7 @@ impl JObj {
         match &self.j {
             J::Boolean(v) => Ok(v.into_py(py)),
             J::I64(v) => Ok(v.into_py(py)),
-            J::Date(v) => Ok(NaiveDate::from_num_days_from_ce_opt(*v)
+            J::Date(v) => Ok(NaiveDate::from_num_days_from_ce_opt(*v + UNIX_EPOCH_DAY)
                 .unwrap()
                 .to_object(py)),
             J::Time(v) => Ok(v.into_py(py)),

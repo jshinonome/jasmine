@@ -4,9 +4,9 @@ Enum = @{ "`" ~ (!"`" ~ ANY)* ~ "`" }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 
-blockComment =  { ("/*" ~ (!"*/" ~ ANY)* ~ "*/") }
-lineComment  =  { "//" ~ (!"\n" ~ ANY)* }
-COMMENT      = ${ blockComment | lineComment }
+blockComment = _{ ("/*" ~ (!"*/" ~ ANY)* ~ "*/") }
+lineComment  = _{ "//" ~ (!"\n" ~ ANY)* }
+COMMENT      = _{ blockComment | lineComment }
 
 Exp = {
     SqlExp

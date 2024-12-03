@@ -15,7 +15,7 @@ use polars::series::Series;
 use regex::bytes::Regex;
 use regex::RegexSet;
 
-// const UNIX_EPOCH_DAY: i32 = 719_163;
+pub const UNIX_EPOCH_DAY: i32 = 719_163;
 
 pub const NS_IN_DAY: i64 = 86_400_000_000_000;
 
@@ -437,7 +437,7 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
         r"^-?\d+(ns|s|m|h)$",
         r"^`[^`]*`$",
         r#"^"[^"]*"$"#,
-        r"^none$",
+        r"(^none$|^$)",
     ])
     .unwrap();
 
@@ -479,9 +479,15 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .into_inner()
                 .into_iter()
                 .map(|s| {
-                    parse_date(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
+                    if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
+                    } else {
+                        parse_date(s.as_str())
+                            .map_err(|e| raise_error(e.to_string(), s.as_span()))
+                            .map(|d| Some(d - UNIX_EPOCH_DAY))
+                    }
                 })
-                .collect::<Result<Vec<i32>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), dates)
                     .cast(&PolarsDataType::Date)
@@ -493,8 +499,16 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
             let times = pair
                 .into_inner()
                 .into_iter()
-                .map(|s| parse_time(s.as_str()).map_err(|e| raise_error(e, s.as_span())))
-                .collect::<Result<Vec<i64>, _>>()?;
+                .map(|s| {
+                    if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
+                    } else {
+                        parse_time(s.as_str())
+                            .map_err(|e| raise_error(e, s.as_span()))
+                            .map(|t| Some(t))
+                    }
+                })
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), times)
                     .cast(&PolarsDataType::Time)
@@ -507,9 +521,15 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .into_inner()
                 .into_iter()
                 .map(|s| {
-                    parse_datetime(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
+                    if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
+                    } else {
+                        parse_datetime(s.as_str())
+                            .map_err(|e| raise_error(e.to_string(), s.as_span()))
+                            .map(|dt| Some(dt))
+                    }
                 })
-                .collect::<Result<Vec<i64>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), datetimes)
                     .cast(&PolarsDataType::Datetime(TimeUnit::Milliseconds, None))
@@ -522,9 +542,15 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .into_inner()
                 .into_iter()
                 .map(|s| {
-                    parse_timestamp(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
+                    if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
+                    } else {
+                        parse_timestamp(s.as_str())
+                            .map_err(|e| raise_error(e.to_string(), s.as_span()))
+                            .map(|ts| Some(ts))
+                    }
                 })
-                .collect::<Result<Vec<i64>, _>>()?;
+                .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
                 Series::new("".into(), timestamps)
                     .cast(&PolarsDataType::Datetime(TimeUnit::Nanoseconds, None))
@@ -537,7 +563,13 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .into_inner()
                 .into_iter()
                 .map(|s| {
-                    parse_duration(s.as_str()).map_err(|e| raise_error(e.to_string(), s.as_span()))
+                    if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
+                    } else {
+                        parse_duration(s.as_str())
+                            .map_err(|e| raise_error(e.to_string(), s.as_span()))
+                            .map(|t| Some(t))
+                    }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
@@ -546,7 +578,6 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                     .map_err(|e| raise_error(e.to_string(), span))?,
             )))
         }
-
         17 => {
             let span = pair.as_span();
             let enums = pair
@@ -557,7 +588,9 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                         .unwrap()
                         .is_match(s.as_str().as_bytes())
                     {
-                        Ok(s.as_str()[1..s.as_str().len() - 1].to_owned())
+                        Ok(Some(s.as_str()[1..s.as_str().len() - 1].to_owned()))
+                    } else if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
                     } else {
                         Err(raise_error("not a enums".to_owned(), s.as_span()))
                     }
@@ -581,7 +614,9 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                         .unwrap()
                         .is_match(s.as_str().as_bytes())
                     {
-                        Ok(s.as_str()[1..s.as_str().len() - 1].to_owned())
+                        Ok(Some(s.as_str()[1..s.as_str().len() - 1].to_owned()))
+                    } else if s.as_str() == "" || s.as_str() == "none" {
+                        Ok(None)
                     } else {
                         Err(raise_error("not a string".to_owned(), s.as_span()))
                     }
@@ -589,7 +624,8 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(Series::new("".into(), strings))))
         }
-        _ => Ok(AstNode::J(J::Series(Series::new_null("".into(), len)))),
+        19 => Ok(AstNode::J(J::Series(Series::new_null("".into(), len)))),
+        _ => Err(raise_error("unknown series".to_owned(), pair.as_span())),
     }
 }
 

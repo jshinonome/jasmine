@@ -1,5 +1,5 @@
 use jasmine::{JParser, Rule};
-use pest::{iterators::Pair, Parser};
+use pest::Parser;
 
 use crate::util::pretty_format_rules;
 
@@ -20,31 +20,16 @@ fn parse_comments() {
 /* */
     ";
     let pairs = JParser::parse(Rule::Program, code).unwrap();
-    let comments: Vec<Pair<'static, Rule>> = pairs
-        .clone()
-        .filter(|p| p.as_rule() == Rule::COMMENT)
-        .collect();
-    assert_eq!(comments.len(), 4);
-    let inputs: Vec<&str> = comments.iter().map(|p| p.as_span().as_str()).collect();
-    assert_eq!(
-        inputs,
-        vec![
-            "/*\n    block of comment\n*/",
-            "// comment",
-            "// comment",
-            "/* */"
-        ]
-    );
     let binding = pretty_format_rules(pairs);
     let actual: Vec<&str> = binding.split("\n").collect();
     assert_eq!(
         vec![
-            "COMMENT -> blockComment",
+            // "COMMENT -> blockComment",
             "Exp -> String",
-            "COMMENT -> lineComment",
-            "COMMENT -> lineComment",
+            // "COMMENT -> lineComment",
+            // "COMMENT -> lineComment",
             "Exp -> String",
-            "COMMENT -> blockComment",
+            // "COMMENT -> blockComment",
             "EOI",
             ""
         ],
