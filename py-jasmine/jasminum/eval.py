@@ -334,6 +334,54 @@ def eval_sql(
         if len(sql.filters) > 0:
             for node in sql.filters:
                 df = df.filter(eval_sql_op(node, engine, ctx, is_in_fn))
+
+        groups = []
+        if len(sql.groups) > 0:
+            for node in sql.groups:
+                groups.append(eval_sql_op(node, engine, ctx, is_in_fn))
+
+        ops = []
+        if len(sql.ops) > 0:
+            for node in sql.ops:
+                ops.append(eval_sql_op(node, engine, ctx, is_in_fn))
+
+        if len(groups) > 0:
+            if sql.op == "select":
+                if len(ops) == 0:
+                    df = df.group_by(groups, maintain_order=True).agg(
+                        pl.col("*").last()
+                    )
+                else:
+                    df = df.group_by(groups, maintain_order=True).agg(ops)
+            elif sql.op == "update":
+                over_ops = []
+                for op in ops:
+                    over_ops.append(op.over(groups))
+                df.with_columns(over_ops)
+            else:
+                raise JasmineEvalException(
+                    engine.get_trace(
+                        source_id, start, "not support 'delete' with 'group'"
+                    )
+                )
+        elif len(ops) > 0:
+            if sql.op == "select":
+                df = df.select(ops)
+            elif sql.op == "update":
+                df = df.with_columns(ops)
+            else:
+                df.drop(ops)
+
+        take = eval_sql_op(sql.take, engine, ctx, is_in_fn)
+
+        if isinstance(take, J) and take.j_type == JType.INT:
+            df = df.head(take.data)
+        else:
+            raise JasmineEvalException(
+                engine.get_trace(
+                    source_id, start, "requires 'int' for 'take', got %s" % take
+                )
+            )
         return J(df.collect())
     except Exception as e:
         raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
@@ -345,6 +393,11 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
 
     if isinstance(node, JObj):
         return J(node, node.j_type)
+    elif isinstance(node, AstSeries):
+        expr = eval_sql_op(node.exp, engine, ctx, is_in_fn)
+        if isinstance(expr, J):
+            expr = expr.to_expr()
+        return expr.alias(node.name)
     elif isinstance(node, AstId):
         if node.id in engine.builtins:
             return engine.builtins[node.id]
