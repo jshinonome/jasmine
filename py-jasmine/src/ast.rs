@@ -391,7 +391,7 @@ impl Ast {
         {
             Ok(AstSql {
                 op: op.to_string(),
-                from: Ast(*from.clone()),
+                from_df: Ast(*from.clone()),
                 filters: filters.into_iter().map(|n| Ast(n.clone())).collect(),
                 groups: groups.into_iter().map(|n| Ast(n.clone())).collect(),
                 ops: ops.into_iter().map(|n| Ast(n.clone())).collect(),
@@ -542,7 +542,7 @@ pub struct AstSeries {
 #[pyclass(get_all)]
 pub struct AstSql {
     op: String,
-    from: Ast,
+    from_df: Ast,
     filters: Vec<Ast>,
     groups: Vec<Ast>,
     ops: Vec<Ast>,

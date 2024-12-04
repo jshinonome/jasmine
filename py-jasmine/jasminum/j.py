@@ -29,6 +29,7 @@ class JType(Enum):
     FN = 17
     MISSING = 18
     RETURN = 19
+    PARTED = 20
 
 
 class J:
@@ -148,3 +149,21 @@ class J:
 
     def tz(self) -> str:
         return self.data.tz()
+
+    def to_expr(self) -> pl.Expr:
+        match self.j_type:
+            case JType.NONE | JType.INT | JType.DATE | JType.FLOAT | JType.SERIES:
+                return pl.lit(self.data)
+            case JType.TIME:
+                return pl.lit(pl.Series("", [self.data], pl.Time))
+            case JType.DATETIME | JType.TIMESTAMP:
+                return pl.lit(self.data.as_series())
+            case JType.DURATION:
+                return pl.lit(pl.Series("", [self.data], pl.Duration("ns")))
+            case JType.STRING | JType.SYMBOL:
+                return pl.lit(self.data)
+            case _:
+                # MATRIX | LIST | DICT | DATAFRAME | ERR | FN | MISSING | RETURN | PARTED
+                raise JasmineEvalException(
+                    "not supported j type for sql fn: %s" % self.j_type.name
+                )
