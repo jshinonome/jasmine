@@ -177,63 +177,63 @@ SQL_FN = {
     # arc functions
     "acos": pl.Expr.arccos,
     "acosh": pl.Expr.arccosh,
-    "asin": 1,
-    "asinh": 1,
-    "atan": 1,
-    "atanh": 1,
+    "asin": pl.Expr.arcsin,
+    "asinh": pl.Expr.arcsinh,
+    "atan": pl.Expr.arctan,
+    "atanh": pl.Expr.arctanh,
     # sort asc
-    "asc": 1,
+    "asc": pl.Expr.sort,
     # backward fill
-    "bfill": 1,
-    "cbrt": 1,
-    "ceil": 1,
-    "cos": 1,
-    "cosh": 1,
-    "cot": 1,
-    "count": 1,
+    "bfill": lambda x: pl.Expr.backward_fill(x),
+    "cbrt": pl.Expr.cbrt,
+    "ceil": pl.Expr.ceil,
+    "cos": pl.Expr.cos,
+    "cosh": pl.Expr.cosh,
+    "cot": pl.Expr.cot,
+    "count": pl.Expr.count,
     # cumulative functions
-    "ccount": 1,
-    "cmax": 1,
-    "cmin": 1,
-    "cproduct": 1,
-    "csum": 1,
+    "ccount": pl.Expr.cum_count,
+    "cmax": pl.Expr.cum_max,
+    "cmin": pl.Expr.cum_min,
+    "cprod": pl.Expr.cum_prod,
+    "csum": pl.Expr.cum_sum,
     # sort desc
-    "desc": 1,
-    "diff": 1,
-    "exp": 1,
-    "first": 1,
-    "flatten": 1,
-    "floor": 1,
+    "desc": lambda x: pl.Expr.sort(x, descending=True),
+    "diff": lambda x: pl.Expr.diff(x),
+    "exp": pl.Expr.exp,
+    "first": pl.Expr.first,
+    "flatten": pl.Expr.flatten,
+    "floor": pl.Expr.floor,
     # forward fill
-    "ffill": 1,
-    "hash": 1,
+    "ffill": lambda x: pl.Expr.forward_fill(x),
+    "hash": lambda x: pl.Expr.hash(x),
     # interpolate
-    "interp": 1,
-    "kurtosis": 1,
-    "last": 1,
-    "ln": 1,
-    "log10": 1,
-    "log1p": 1,
-    "lowercase": 1,
+    "interp": lambda x: pl.Expr.interpolate(x),
+    "kurtosis": pl.Expr.kurtosis,
+    "last": pl.Expr.last,
+    "ln": lambda x: pl.Expr.log(x),
+    "log10": pl.Expr.log10,
+    "log1p": pl.Expr.log1p,
+    "lowercase": lambda x: x.str.to_lowercase(),
     # strip start
-    "strips": 1,
-    "max": 1,
-    "mean": 1,
-    "median": 1,
-    "min": 1,
-    "neg": 1,
-    "next": 1,
+    "strips": lambda x: x.str.strip_chars_start(),
+    "max": pl.Expr.max,
+    "mean": pl.Expr.mean,
+    "median": pl.Expr.median,
+    "min": pl.Expr.min,
+    "neg": pl.Expr.neg,
+    "next": lambda x: pl.Expr.shift(x, -1),
     "mode": 1,
     "not": 1,
     "null": 1,
     # percent change
     "pc": 1,
-    "prev": 1,
-    "product": 1,
+    "prev": lambda x: pl.Expr.shift(x),
+    "prod": 1,
     "rank": 1,
     "reverse": 1,
     # strip end
-    "stripe": 1,
+    "stripe": lambda x: x.str.strip_chars_end(),
     "shuffle": 1,
     "sign": 1,
     "sin": 1,
@@ -243,7 +243,7 @@ SQL_FN = {
     "std0": 1,
     "std1": 1,
     "string": 1,
-    "strip": 1,
+    "strip": lambda x: x.str.strip_chars(),
     "sum": 1,
     "tan": 1,
     "tanh": 1,
@@ -374,8 +374,13 @@ def eval_sql(
 
         take = eval_sql_op(sql.take, engine, ctx, is_in_fn)
 
-        if isinstance(take, J) and take.j_type == JType.INT:
-            df = df.head(take.data)
+        if (
+            isinstance(take, J)
+            and take.j_type == JType.INT
+            or take.j_type == JType.NONE
+        ):
+            if take.j_type == JType.INT:
+                df = df.head(take.data)
         else:
             raise JasmineEvalException(
                 engine.get_trace(
@@ -407,6 +412,22 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
             return engine.globals[node.id]
         else:
             return pl.col(node.id)
+    elif isinstance(node, AstUnaryOp):
+        op = downcast_ast_node(node.op)
+        exp = eval_sql_op(node.exp, engine, ctx, is_in_fn)
+        if isinstance(exp, J):
+            op_fn = eval_node(op, engine, ctx, is_in_fn)
+            return eval_fn(
+                op_fn,
+                engine,
+                ctx,
+                op.source_id,
+                op.start,
+                exp,
+            )
+        else:
+            op_fn = get_sql_fn(op, engine)
+            return eval_sql_fn(op_fn, exp)
     elif isinstance(node, AstBinOp):
         op = downcast_ast_node(node.op)
         lhs = eval_sql_op(node.lhs, engine, ctx, is_in_fn)
@@ -439,12 +460,17 @@ def eval_sql_fn(fn: Callable, *args) -> pl.Expr:
     return fn(*fn_args)
 
 
-def get_sql_fn(op: AstOp, engine):
-    if op.op in SQL_FN:
-        return SQL_FN[op.op]
+def get_sql_fn(node: AstOp | AstId, engine):
+    fn_name = ""
+    if isinstance(node, AstOp):
+        fn_name = node.op
+    elif isinstance(node, AstId):
+        fn_name = node.id
+    if fn_name in SQL_FN:
+        return SQL_FN[fn_name]
     else:
         engine.get_trace(
-            op.source_id,
-            op.start,
-            "%s is not a valid sql fn" % op.op,
+            node.source_id,
+            node.start,
+            "%s is not a valid sql fn" % fn_name,
         )

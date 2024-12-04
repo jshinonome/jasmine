@@ -703,7 +703,7 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
     let mut from: AstNode = AstNode::Skip;
     let mut filters: Vec<AstNode> = Vec::new();
     let mut sorts: Vec<AstNode> = Vec::new();
-    let mut take = AstNode::Skip;
+    let mut take = AstNode::J(J::None);
     while let Some(some_pair) = pairs.next() {
         match some_pair.as_rule() {
             Rule::SelectOp | Rule::UpdateOp | Rule::DeleteOp => {
