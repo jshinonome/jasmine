@@ -29,7 +29,7 @@ dependencies = [
 include = ["rust-toolchain.toml"]
 
 [project.urls]
-Repository = "https://github.com/jshinonome/kola"
+Repository = "https://github.com/jshinonome/jasmine"
 
 [project.scripts]
 jasminum = "jasminum.main:main"
