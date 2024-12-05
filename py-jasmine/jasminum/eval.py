@@ -30,7 +30,7 @@ from .ast import (
     downcast_ast_node,
     parse_source_code,
 )
-from .constant import DATA_TYPE
+from .constant import PL_DATA_TYPE
 from .context import Context
 from .engine import Engine
 from .exceptions import JasmineEvalException
@@ -112,34 +112,37 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
 
 
 def eval_fn(fn: JFn, engine: Engine, ctx: Context, source_id: int, start: int, *args):
-    if fn.arg_num < len(args):
-        raise engine.get_trace(
-            source_id,
-            start,
-            "takes %s arguments but %s were given" % (fn.arg_num, len(args)),
-        )
+    try:
+        if fn.arg_num < len(args):
+            raise engine.get_trace(
+                source_id,
+                start,
+                "takes %s arguments but %s were given" % (fn.arg_num, len(args)),
+            )
 
-    fn_args = fn.args
-    missing_arg_names = fn.arg_names.copy()
-    missing_arg_num = 0
-    for i, arg in enumerate(args):
-        if arg.j_type == JType.MISSING:
-            missing_arg_num += 1
-        else:
-            fn_args[fn.arg_names[i]] = arg
-            missing_arg_names.remove(fn.arg_names[i])
+        fn_args = fn.args
+        missing_arg_names = fn.arg_names.copy()
+        missing_arg_num = 0
+        for i, arg in enumerate(args):
+            if arg.j_type == JType.MISSING:
+                missing_arg_num += 1
+            else:
+                fn_args[fn.arg_names[i]] = arg
+                missing_arg_names.remove(fn.arg_names[i])
 
-    if missing_arg_num == 0 and fn.arg_num == len(args):
-        if isinstance(fn.fn, Callable):
-            return fn.fn(**fn_args)
+        if missing_arg_num == 0 and fn.arg_num == len(args):
+            if isinstance(fn.fn, Callable):
+                return fn.fn(**fn_args)
+            else:
+                return eval_node(fn.fn, engine, Context(fn_args), True)
         else:
-            return eval_node(fn.fn, engine, Context(fn_args), True)
-    else:
-        new_fn = copy(fn)
-        new_fn.arg_names = missing_arg_names
-        new_fn.arg_num = len(missing_arg_names)
-        new_fn.args = fn_args
-        return new_fn
+            new_fn = copy(fn)
+            new_fn.arg_names = missing_arg_names
+            new_fn.arg_num = len(missing_arg_names)
+            new_fn.args = fn_args
+            return new_fn
+    except Exception as e:
+        raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
 
 
 SQL_FN = {
@@ -456,8 +459,8 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
 
 def eval_sql_cast(type_name: str, expr: pl.Expr):
     match type_name:
-        case type_name if type_name in DATA_TYPE:
-            return expr.cast(DATA_TYPE(type_name))
+        case type_name if type_name in PL_DATA_TYPE:
+            return expr.cast(PL_DATA_TYPE(type_name))
         case "year":
             return expr.dt.year()
         case "month":
@@ -470,7 +473,7 @@ def eval_sql_cast(type_name: str, expr: pl.Expr):
             return expr.dt.weekday()
         case "day":
             return expr.dt.day()
-        case "date":
+        case "dt":
             return expr.dt.date()
         case "hour":
             return expr.dt.hour()
@@ -478,6 +481,8 @@ def eval_sql_cast(type_name: str, expr: pl.Expr):
             return expr.dt.minute()
         case "second":
             return expr.dt.second()
+        case "t":
+            return expr.dt.time()
         case "ms":
             return expr.dt.millisecond()
         case "ns":

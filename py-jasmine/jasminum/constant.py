@@ -1,6 +1,6 @@
 import polars as pl
 
-DATA_TYPE = {
+PL_DATA_TYPE = {
     "bool": pl.Boolean,
     "u8": pl.UInt8,
     "i8": pl.Int8,

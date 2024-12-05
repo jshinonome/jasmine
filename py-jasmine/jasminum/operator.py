@@ -3,6 +3,7 @@ from datetime import timedelta
 import numpy as np
 import polars as pl
 
+from .constant import PL_DATA_TYPE
 from .exceptions import JasmineEvalException
 from .j import J, JType
 
@@ -53,3 +54,59 @@ def rand(size: J, limit: J) -> J:
         return J(pl.Series("", np.random.randint(limit.data, size=size.data)))
     elif limit.j_type == JType.FLOAT and size.j_type == JType.INT:
         return J(pl.Series("", limit.data * np.random.rand(size.data)))
+    else:
+        raise JasmineEvalException(
+            "'rand' requires 'int' and 'int|float', got '%s' and '%s'"
+            % (size.j_type, size.j_type)
+        )
+
+
+def cast(type_name: J, arg: J) -> J:
+    if type_name.j_type == JType.SYMBOL or type_name.j_type == JType.STRING:
+        name = type_name.data
+        if name not in PL_DATA_TYPE and name not in [
+            "year",
+            "month",
+            "month_start",
+            "month_end",
+            "weekday",
+            "day",
+            "dt",
+            "hour",
+            "minute",
+            "second",
+            "ms",
+            "ns",
+        ]:
+            raise JasmineEvalException("unknown data type for 'cast': %s" % name)
+        if arg.j_type == JType.SERIES:
+            if name in PL_DATA_TYPE:
+                return J(arg.data.cast(PL_DATA_TYPE[name]))
+            else:
+                match name:
+                    case "year":
+                        return J(arg.data.dt.year())
+                    case "month":
+                        return J(arg.data.dt.month())
+                    case "month_start":
+                        return J(arg.data.dt.month_start())
+                    case "month_end":
+                        return J(arg.data.dt.month_end())
+                    case "weekday":
+                        return J(arg.data.dt.weekday())
+                    case "day":
+                        return J(arg.data.dt.day())
+                    case "dt":
+                        return J(arg.data.dt.date())
+                    case "hour":
+                        return J(arg.data.dt.hour())
+                    case "minute":
+                        return J(arg.data.dt.minute())
+                    case "second":
+                        return J(arg.data.dt.second())
+                    case "t":
+                        return J(arg.data.dt.time())
+                    case "ms":
+                        return J(arg.data.dt.millisecond())
+                    case "ns":
+                        return J(arg.data.dt.nanosecond())

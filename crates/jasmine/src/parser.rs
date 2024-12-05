@@ -417,7 +417,12 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
             break;
         }
     }
-
+    if len == 1 && first_scalar == "" {
+        return Ok(AstNode::J(J::Series(Series::new_empty(
+            "".into(),
+            &PolarsDataType::Null,
+        ))));
+    }
     let set = RegexSet::new(&[
         r"^(true|false)$",
         r"^\d+u8$",
