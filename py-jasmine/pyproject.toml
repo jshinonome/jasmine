@@ -16,7 +16,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Rust",
 ]
-keywords = ["q", "kdb", "polars", "dataframe", "arrow"]
+keywords = ["jasmine", "jasminum", "polars", "dataframe", "arrow"]
 dynamic = ["version"]
 dependencies = [
     'polars >= 1.16.0',
