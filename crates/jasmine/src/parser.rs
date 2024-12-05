@@ -77,6 +77,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         | Rule::Datetime
         | Rule::Timestamp
         | Rule::Duration
+        | Rule::Enum
         | Rule::String
         | Rule::None => parse_j(pair),
         Rule::Series => parse_series(pair),
@@ -345,7 +346,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             Ok(AstNode::Dict { keys, values })
         }
         unexpected_exp => Err(raise_error(
-            format!("Unexpected expression: {:?}", unexpected_exp),
+            format!("Unexpected rule: {:?}", unexpected_exp),
             pair.as_span(),
         )),
     }
@@ -360,7 +361,7 @@ fn parse_list(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<R
         }),
         Rule::Exp => parse_exp(pair, source_id),
         _ => Err(raise_error(
-            format!("Unexpected list expression: {:?}", pair.as_str()),
+            format!("Unexpected rule in list expression: {:?}", pair.as_str()),
             pair.as_span(),
         )),
     }
@@ -592,7 +593,7 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                     } else if s.as_str() == "" || s.as_str() == "none" {
                         Ok(None)
                     } else {
-                        Err(raise_error("not a enums".to_owned(), s.as_span()))
+                        Err(raise_error("not an enum".to_owned(), s.as_span()))
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;

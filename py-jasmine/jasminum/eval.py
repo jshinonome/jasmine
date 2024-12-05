@@ -30,6 +30,7 @@ from .ast import (
     downcast_ast_node,
     parse_source_code,
 )
+from .constant import DATA_TYPE
 from .context import Context
 from .engine import Engine
 from .exceptions import JasmineEvalException
@@ -152,7 +153,6 @@ SQL_FN = {
     "@": pl.Expr.get,
     # cast
     "$": pl.Expr.cast,
-    "?": None,
     "++": lambda x, y: pl.concat_list([x, y]),
     "+": pl.Expr.add,
     "-": pl.Expr.sub,
@@ -223,56 +223,55 @@ SQL_FN = {
     "min": pl.Expr.min,
     "neg": pl.Expr.neg,
     "next": lambda x: pl.Expr.shift(x, -1),
-    "mode": 1,
-    "not": 1,
-    "null": 1,
+    "mode": pl.Expr.mode,
+    "not": pl.Expr.not_,
+    "null": pl.Expr.is_null,
     # percent change
-    "pc": 1,
+    "pc": lambda x: pl.Expr.pct_change(x),
     "prev": lambda x: pl.Expr.shift(x),
-    "prod": 1,
-    "rank": 1,
-    "reverse": 1,
+    "prod": pl.Expr.product,
+    "rank": lambda x: pl.Expr.rank(x),
+    "reverse": pl.Expr.reverse,
     # strip end
     "stripe": lambda x: x.str.strip_chars_end(),
-    "shuffle": 1,
-    "sign": 1,
-    "sin": 1,
-    "sinh": 1,
-    "skew": 1,
-    "sqrt": 1,
-    "std0": 1,
-    "std1": 1,
-    "string": 1,
+    "shuffle": pl.Expr.shuffle,
+    "sign": pl.Expr.sign,
+    "sin": pl.Expr.sin,
+    "sinh": pl.Expr.sinh,
+    "skew": pl.Expr.skew,
+    "sqrt": pl.Expr.sqrt,
+    "std0": lambda x: pl.Expr.std(x, 0),
+    "std1": lambda x: pl.Expr.std(x, 1),
+    "string": lambda x: x.cast(pl.String),
     "strip": lambda x: x.str.strip_chars(),
-    "sum": 1,
-    "tan": 1,
-    "tanh": 1,
-    "unique": 1,
+    "sum": pl.Expr.sum,
+    "tan": pl.Expr.tan,
+    "tanh": pl.Expr.tanh,
+    "unique": pl.Expr.unique,
     # unique count
-    "uc": 1,
-    "uppercase": 1,
-    "var0": 1,
-    "var1": 1,
+    "uc": pl.Expr.unique_counts,
+    "uppercase": lambda x: x.str.to_uppercase(),
+    "var0": lambda x: pl.Expr.var(x, 0),
+    "var1": lambda x: pl.Expr.var(x, 1),
     # binary
     "between": 2,
     # bottom k
-    "bottom": 2,
-    "corr0": 2,
-    "corr1": 2,
-    "cov0": 2,
-    "cov1": 2,
-    "cross": 2,
-    "differ": 2,
+    "bottom": lambda x, y: pl.Expr.bottom_k(y, x),
+    "corr0": lambda x, y: pl.corr(x, y, ddof=0),
+    "corr1": lambda x, y: pl.corr(x, y, ddof=1),
+    "cov0": lambda x, y: pl.cov(x, y, 0),
+    "cov1": lambda x, y: pl.cov(x, y, 1),
+    "differ": lambda x, y: x.list.set_difference(y),
     # ewm functions
-    "emean": 2,
-    "estd": 2,
-    "evar": 2,
+    "emean": lambda x, y: pl.Expr.ewm_mean(y, alpha=x),
+    "estd": lambda x, y: pl.Expr.ewm_std(y, alpha=x),
+    "evar": lambda x, y: pl.Expr.ewm_mean(y, alpha=x),
     # fill null
     "fill": 2,
     "in": 2,
     "intersect": 2,
     "like": 2,
-    "log": 2,
+    "log": lambda x, y: pl.Expr.log(x, y),
     "matches": 2,
     "join": 2,
     # rolling functions
@@ -300,6 +299,7 @@ SQL_FN = {
     "union": 2,
     "wmean": 2,
     "wsum": 2,
+    "over": pl.Expr.over,
     # other functions
     "clip": 3,
     "concat": 3,
@@ -404,7 +404,9 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
             expr = expr.to_expr()
         return expr.alias(node.name)
     elif isinstance(node, AstId):
-        if node.id in engine.builtins:
+        if node.id == "i":
+            return pl.int_range(pl.len(), dtype=pl.UInt32).alias("i")
+        elif node.id in engine.builtins:
             return engine.builtins[node.id]
         elif node.id in ctx.locals:
             return ctx.locals[node.id]
@@ -426,8 +428,9 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
                 exp,
             )
         else:
-            op_fn = get_sql_fn(op, engine)
-            return eval_sql_fn(op_fn, exp)
+            fn_name = get_sql_fn_name(op)
+            op_fn = get_sql_fn(op, fn_name, 1, engine)
+            return eval_sql_fn(op_fn, fn_name, exp)
     elif isinstance(node, AstBinOp):
         op = downcast_ast_node(node.op)
         lhs = eval_sql_op(node.lhs, engine, ctx, is_in_fn)
@@ -444,33 +447,97 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
                 rhs,
             )
         else:
-            op_fn = get_sql_fn(op, engine)
-            return eval_sql_fn(op_fn, lhs, rhs)
+            fn_name = get_sql_fn_name(op)
+            op_fn = get_sql_fn(op, fn_name, 2, engine)
+            return eval_sql_fn(op_fn, fn_name, lhs, rhs)
     else:
         raise JasmineEvalException("not yet implemented for sql - %s" % node)
 
 
-def eval_sql_fn(fn: Callable, *args) -> pl.Expr:
-    fn_args = []
-    for arg in args:
-        if isinstance(arg, J):
-            fn_args.append(arg.to_expr())
-        else:
-            fn_args.append(arg)
-    return fn(*fn_args)
+def eval_sql_cast(type_name: str, expr: pl.Expr):
+    match type_name:
+        case type_name if type_name in DATA_TYPE:
+            return expr.cast(DATA_TYPE(type_name))
+        case "year":
+            return expr.dt.year()
+        case "month":
+            return expr.dt.month()
+        case "month_start":
+            return expr.dt.month_start()
+        case "month_end":
+            return expr.dt.month_end()
+        case "weekday":
+            return expr.dt.weekday()
+        case "day":
+            return expr.dt.day()
+        case "date":
+            return expr.dt.date()
+        case "hour":
+            return expr.dt.hour()
+        case "minute":
+            return expr.dt.minute()
+        case "second":
+            return expr.dt.second()
+        case "ms":
+            return expr.dt.millisecond()
+        case "ns":
+            return expr.dt.nanosecond()
+        case _:
+            raise JasmineEvalException("unknown data type %s" % type_name)
 
 
-def get_sql_fn(node: AstOp | AstId, engine):
-    fn_name = ""
+def eval_sql_fn(fn: Callable, fn_name: str, *args) -> pl.Expr:
+    match fn_name:
+        case "$":
+            j = args[0]
+            expr = args[1]
+            if (
+                isinstance(j, J)
+                and (j.j_type == JType.STRING or j.j_type == JType.SYMBOL)
+                and isinstance(expr, pl.Expr)
+            ):
+                datatype = j.data
+                return eval_sql_cast(datatype, expr)
+            else:
+                raise JasmineEvalException(
+                    "'$'(cast) requires data type and series expression"
+                )
+        case _:
+            fn_args = []
+            for arg in args:
+                if isinstance(arg, J):
+                    fn_args.append(arg.to_expr())
+                else:
+                    fn_args.append(arg)
+            return fn(*fn_args)
+
+
+def get_sql_fn_name(node: AstOp | AstId):
     if isinstance(node, AstOp):
-        fn_name = node.op
+        return node.op
     elif isinstance(node, AstId):
-        fn_name = node.id
+        return node.id
+
+
+def get_sql_fn(node: AstOp | AstId, fn_name: str, arg_num: int, engine: Engine):
     if fn_name in SQL_FN:
-        return SQL_FN[fn_name]
+        fn = SQL_FN[fn_name]
+        if fn.__code__.co_argcount != arg_num:
+            raise JasmineEvalException(
+                engine.get_trace(
+                    node.source_id,
+                    node.start,
+                    "'%s' takes %s arguments but %s were given"
+                    % (fn_name, fn.__code__.co_argcount, arg_num),
+                )
+            )
+
+        return fn
     else:
-        engine.get_trace(
-            node.source_id,
-            node.start,
-            "%s is not a valid sql fn" % fn_name,
+        raise JasmineEvalException(
+            engine.get_trace(
+                node.source_id,
+                node.start,
+                "%s is not a valid sql fn" % fn_name,
+            )
         )

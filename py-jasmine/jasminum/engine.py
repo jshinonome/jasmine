@@ -6,7 +6,7 @@ import polars as pl
 from .ast import print_trace
 from .j import J
 from .j_fn import JFn
-from .operator import add
+from .operator import add, rand
 
 
 class Engine:
@@ -22,6 +22,7 @@ class Engine:
         self.builtins = dict()
 
         self.register_builtin("+", add)
+        self.register_builtin("?", rand)
         self.builtins["tz"] = J(
             pl.Series("tz", sorted(list(zoneinfo.available_timezones())))
         )

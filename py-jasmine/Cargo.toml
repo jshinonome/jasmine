@@ -10,7 +10,7 @@ crate-type = ["cdylib"]
 [dependencies]
 jasmine = { path = "../crates/jasmine" }
 pyo3 = { version = "0.21.2", features = ["extension-module", "chrono"] }
-thiserror = "2.0.3"
+thiserror = "2.0.4"
 pyo3-polars = { version = "0.18.0", features = [
   "dtype-categorical",
   "dtype-array",

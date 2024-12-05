@@ -1,5 +1,8 @@
 from datetime import timedelta
 
+import numpy as np
+import polars as pl
+
 from .exceptions import JasmineEvalException
 from .j import J, JType
 
@@ -43,3 +46,10 @@ def add(arg1: J, arg2: J) -> J:
                     "add", arg1.j_type.name, arg2.j_type.name
                 )
             )
+
+
+def rand(size: J, limit: J) -> J:
+    if limit.j_type == JType.INT and size.j_type == JType.INT:
+        return J(pl.Series("", np.random.randint(limit.data, size=size.data)))
+    elif limit.j_type == JType.FLOAT and size.j_type == JType.INT:
+        return J(pl.Series("", limit.data * np.random.rand(size.data)))

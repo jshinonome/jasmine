@@ -1,11 +1,12 @@
 import importlib.metadata
+import readline
 import traceback
 
 from termcolor import cprint
 
 from .context import Context
 from .engine import Engine
-from .eval import eval_src
+from .eval import SQL_FN, eval_src
 from .history_console import HistoryConsole
 
 __version__ = importlib.metadata.version("jasminum")
@@ -31,6 +32,7 @@ def main():
     engine = Engine()
     HistoryConsole()
     src = ""
+    readline.set_completer(complete)
     while src != "exit":
         try:
             src = []
@@ -58,3 +60,12 @@ def main():
         except KeyboardInterrupt:
             print()
             continue
+
+
+def complete(text, state):
+    for cmd in SQL_FN:
+        if cmd.startswith(text):
+            if not state:
+                return cmd
+            else:
+                state -= 1
