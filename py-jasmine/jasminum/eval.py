@@ -375,6 +375,19 @@ def eval_sql(
             else:
                 df.drop(ops)
 
+        sorts = []
+        descendings = []
+        if len(sql.sorts) > 0:
+            for sort in sql.sorts:
+                sort = downcast_ast_node(sort).id
+                if sort.startswith("-"):
+                    sorts.append(sort[1:])
+                    descendings.append(True)
+                else:
+                    sorts.append(sort)
+                    descendings.append(False)
+            df = df.sort(sorts, descending=descendings)
+
         take = eval_sql_op(sql.take, engine, ctx, is_in_fn)
 
         if (
@@ -390,6 +403,7 @@ def eval_sql(
                     source_id, start, "requires 'int' for 'take', got %s" % take
                 )
             )
+
         return J(df.collect())
     except Exception as e:
         raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))

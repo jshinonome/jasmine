@@ -68,7 +68,7 @@ l[1, none, `cat]
 
 ```
 // empty series
-`i8$[]
+`i8`$[]
 
 // non-empty series
 [true, none, false]
@@ -81,11 +81,11 @@ a collection of series
 
 ```
 // empty series
-df[series1= `i32$[], series2= `f32$[]]
+df[series1= `i32`$[], series2= `f32`$[]]
 
 
 // non-empty series
-df[series1 = `i32$[ , , ], series2 = `f32$[none, 2.0, 3.0]]
+df[series1 = `i32`$[ , , ], series2 = `f32`$[none, 2.0, 3.0]]
 df[series1 = [0i32, , ], series2 = [none, 2.0, 3.0]]
 ```
 
@@ -109,7 +109,7 @@ x[[1, 2], [2, 3], [4, None]]
 
 // non-empty map
 {a:1, b:2, c:3}
-d[[`a, `b, `c], [1, none, true]]
+d[[`a`, `b`, `c`], [1, none, true]]
 d[]
 ```
 
@@ -147,15 +147,15 @@ fn(param1, param2){
 
 ```
 from table
-  [ filter {condition[,condition]}]
-  [ group {series1, series2, ...}]
+  [ filter {condition[,condition]} ]
+  [ group {series1, series2, ...} ]
   [
     select {series1, series2, ...}
     | update {series1, series2, ...}
     | delete {series1, series2, ...}
   ]
-  [ sort {series1, -series2, ...}]
-  [ take number]
+  [ sort {series1, -series2, ...} ]
+  [ take number ]
 
 select(dataframe, (), (), ())
 update(dataframe, (), (), ())
