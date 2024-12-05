@@ -77,7 +77,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
         | Rule::Datetime
         | Rule::Timestamp
         | Rule::Duration
-        | Rule::Enum
+        | Rule::Cat
         | Rule::String
         | Rule::None => parse_j(pair),
         Rule::Series => parse_series(pair),
@@ -586,7 +586,7 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
         }
         17 => {
             let span = pair.as_span();
-            let enums = pair
+            let cats = pair
                 .into_inner()
                 .into_iter()
                 .map(|s| {
@@ -598,12 +598,12 @@ fn parse_series(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                     } else if s.as_str() == "" || s.as_str() == "none" {
                         Ok(None)
                     } else {
-                        Err(raise_error("not an enum".to_owned(), s.as_span()))
+                        Err(raise_error("not an categorical".to_owned(), s.as_span()))
                     }
                 })
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(AstNode::J(J::Series(
-                Series::new("".into(), enums)
+                Series::new("".into(), cats)
                     .cast(&PolarsDataType::Categorical(
                         None,
                         CategoricalOrdering::Lexical,
@@ -682,7 +682,7 @@ fn parse_j(pair: Pair<Rule>) -> Result<AstNode, PestError<Rule>> {
                 .map(|j| J::Duration(j))?;
             Ok(AstNode::J(j))
         }
-        Rule::Enum => Ok(AstNode::J(J::Symbol(
+        Rule::Cat => Ok(AstNode::J(J::Cat(
             pair.as_str()[1..pair.as_str().len() - 1].to_string(),
         ))),
         Rule::String => {

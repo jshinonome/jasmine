@@ -62,7 +62,7 @@ def rand(size: J, limit: J) -> J:
 
 
 def cast(type_name: J, arg: J) -> J:
-    if type_name.j_type == JType.SYMBOL or type_name.j_type == JType.STRING:
+    if type_name.j_type == JType.CAT or type_name.j_type == JType.STRING:
         name = type_name.data
         if name not in PL_DATA_TYPE and name not in [
             "year",
@@ -110,3 +110,7 @@ def cast(type_name: J, arg: J) -> J:
                         return J(arg.data.dt.millisecond())
                     case "ns":
                         return J(arg.data.dt.nanosecond())
+    else:
+        raise JasmineEvalException(
+            "'cast' requires 'cat|string' as data type, got %s" % type_name.j_type.name
+        )

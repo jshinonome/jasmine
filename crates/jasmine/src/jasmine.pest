@@ -1,6 +1,6 @@
 String = @{ "\"" ~ ("\\\"" | "\\r" | "\\n" | "\\t" | (!"\"" ~ ANY))* ~ "\"" }
 
-Enum = @{ "`" ~ (!"`" ~ ANY)* ~ "`" }
+Cat = @{ "`" ~ (!"`" ~ ANY)* ~ "`" }
 
 WHITESPACE = _{ " " | "\t" | NEWLINE }
 
@@ -90,7 +90,7 @@ Term = _{
   | List
   | Handle
   | String
-  | Enum
+  | Cat
   | Timestamp
   | Datetime
   | Duration

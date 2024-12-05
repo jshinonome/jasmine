@@ -498,7 +498,7 @@ def eval_sql_fn(fn: Callable, fn_name: str, *args) -> pl.Expr:
             expr = args[1]
             if (
                 isinstance(j, J)
-                and (j.j_type == JType.STRING or j.j_type == JType.SYMBOL)
+                and (j.j_type == JType.STRING or j.j_type == JType.CAT)
                 and isinstance(expr, pl.Expr)
             ):
                 datatype = j.data

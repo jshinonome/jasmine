@@ -19,7 +19,7 @@ class JType(Enum):
     DURATION = 7
     FLOAT = 8
     STRING = 9
-    SYMBOL = 10
+    CAT = 10
     SERIES = 11
     MATRIX = 12
     LIST = 13
@@ -160,7 +160,7 @@ class J:
                 return pl.lit(self.data.as_series())
             case JType.DURATION:
                 return pl.lit(pl.Series("", [self.data], pl.Duration("ns")))
-            case JType.STRING | JType.SYMBOL:
+            case JType.STRING | JType.CAT:
                 return pl.lit(self.data)
             case _:
                 # MATRIX | LIST | DICT | DATAFRAME | ERR | FN | MISSING | RETURN | PARTED

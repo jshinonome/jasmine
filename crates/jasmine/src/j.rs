@@ -17,7 +17,7 @@ pub enum J {
     Duration(i64),                           // -10
     F64(f64),                                // -12
     String(String),                          // -13
-    Symbol(String),                          // -14
+    Cat(String),                             // -14
 
     None, // 0
 
@@ -59,7 +59,7 @@ impl J {
             J::Duration(s) => Ok(Series::new("".into(), vec![*s])
                 .cast(&DataType::Duration(TimeUnit::Nanoseconds))
                 .unwrap()),
-            J::Symbol(s) => Ok(Series::new("".into(), vec![s.to_owned()])
+            J::Cat(s) => Ok(Series::new("".into(), vec![s.to_owned()])
                 .cast(&DataType::Categorical(None, CategoricalOrdering::Lexical))
                 .unwrap()),
             J::String(s) => Ok(Series::new("".into(), vec![s.to_owned()])),
@@ -99,7 +99,7 @@ impl J {
             J::Datetime { .. } => "datetime".to_owned(),
             J::Time(_) => "time".to_owned(),
             J::Duration(_) => "duration".to_owned(),
-            J::Symbol(_) => "sym".to_owned(),
+            J::Cat(_) => "sym".to_owned(),
             J::String(_) => "str".to_owned(),
 
             J::MixedList(_) => "list".to_owned(),
