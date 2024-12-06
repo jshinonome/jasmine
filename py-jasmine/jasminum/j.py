@@ -1,5 +1,7 @@
 from datetime import date
 from enum import Enum
+from pathlib import Path
+from typing import Literal
 
 import polars as pl
 
@@ -32,8 +34,32 @@ class JType(Enum):
     PARTED = 20
 
 
+class JParted:
+    path: Path
+    # single=0, date=4, year=8
+    unit: int
+    partitions: list[int]
+
+    def __init__(
+        self, path: Path, unit: Literal[0, 4, 8], partitions: list[int]
+    ) -> None:
+        self.path = path
+        self.unit = unit
+        self.partitions = partitions
+
+    def __str__(self) -> str:
+        match self.unit:
+            case 4:
+                unit = "year"
+            case 8:
+                unit = "date"
+            case _:
+                unit = "single"
+        return f"partitioned by {unit} @ `{self.path}` - {self.partitions[-3:]}"
+
+
 class J:
-    data: JObj | date | int | float | pl.Series | pl.DataFrame
+    data: JObj | date | int | float | pl.Series | pl.DataFrame | JParted
     j_type: JType
 
     def __init__(self, data, j_type=JType.NONE) -> None:
@@ -53,6 +79,8 @@ class J:
             self.j_type = JType.FN
         elif isinstance(data, date):
             self.j_type = JType.DATE
+        elif isinstance(data, JParted):
+            self.j_type = JType.PARTED
         else:
             self.j_type = j_type
 
@@ -85,6 +113,8 @@ class J:
                 days = HH // 24
                 HH = HH % 24
                 return f"{neg}{days}D{HH:02d}:{mm:02d}:{ss:02d}:{sss:09d}"
+            case JType.PARTED:
+                return str(self.data)
             case _:
                 return repr(self)
 

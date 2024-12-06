@@ -78,6 +78,11 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
                     node.source_id, node.start, "'%s' is not defined" % node.id
                 )
             )
+    elif isinstance(node, AstUnaryOp):
+        op = downcast_ast_node(node.op)
+        op_fn = eval_node(op, engine, ctx, is_in_fn)
+        exp = eval_node(node.exp, engine, ctx, is_in_fn)
+        return eval_fn(op_fn, engine, ctx, op.source_id, op.start, exp)
     elif isinstance(node, AstBinOp):
         op = downcast_ast_node(node.op)
         op_fn = eval_node(op, engine, ctx, is_in_fn)
@@ -163,7 +168,7 @@ SQL_FN = {
     "**": pl.Expr.pow,
     "*": pl.Expr.mul,
     # floor division
-    "//": pl.Expr.floordiv,
+    "div": pl.Expr.floordiv,
     "/": pl.Expr.truediv,
     # mod
     "%": pl.Expr.mod,
@@ -331,9 +336,11 @@ def eval_sql(
         j = eval_node(sql.from_df, engine, ctx, is_in_fn)
         if j.j_type == JType.DATAFRAME:
             df = j.data.lazy()
-        else:
+        elif j.j_type == JType.PARTED:
             # partitioned table
             pass
+        else:
+            raise JasmineEvalException("'from' requires dataframe, got %s" % j.j_type)
         if len(sql.filters) > 0:
             for node in sql.filters:
                 df = df.filter(eval_sql_op(node, engine, ctx, is_in_fn))
