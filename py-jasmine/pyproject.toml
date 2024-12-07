@@ -20,7 +20,7 @@ keywords = ["jasmine", "jasminum", "polars", "dataframe", "arrow"]
 dynamic = ["version"]
 dependencies = [
     'polars >= 1.16.0',
-    'pyarrow >= 7.0.0',
+    'pyarrow >= 18.1.0',
     'termcolor >= 2.5.0',
     'numpy >= 2.1.0',
 ]

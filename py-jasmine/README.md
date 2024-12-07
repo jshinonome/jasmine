@@ -1,6 +1,6 @@
 # jasminum
 
-an implementation of the data analytics programming language jasmine
+an implementation of the data analytics programming language jasmine powered by [Polars](https://pola.rs/)
 
 ## Installation
 

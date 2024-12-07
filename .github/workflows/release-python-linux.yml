@@ -108,6 +108,6 @@ jobs:
 
       - name: Publish to PyPI
         if: inputs.dry-run == false
-        uses: pypa/gh-action-pypi-publish@release/v1
+        uses: pypa/gh-action-pypi-publish@unstable/v1
         with:
           verbose: true
