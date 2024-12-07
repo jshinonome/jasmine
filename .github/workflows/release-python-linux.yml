@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-20.04]
+        os: [ubuntu-latest]
         # manylinux aarch64 openssl doesn't work
         # architecture: [x86-64, aarch64]
         architecture: [x86-64]
@@ -89,7 +89,7 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/project/jasminum
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
 
