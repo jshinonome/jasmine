@@ -70,8 +70,9 @@ class Engine:
                             else:
                                 unit = 8
                         partitions.append(int(partition.name[:unit]))
-                    self.globals[df_path.name] = J(
-                        JParted(df_path, unit, sorted(partitions))
-                    )
-                    frames.append(df_path.name)
+                    if len(partitions) > 0:
+                        self.globals[df_path.name] = J(
+                            JParted(df_path, unit, sorted(partitions))
+                        )
+                        frames.append(df_path.name)
         return J(pl.Series("", frames))

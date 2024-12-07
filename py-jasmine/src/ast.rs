@@ -81,13 +81,13 @@ impl Ast {
 
     pub fn id(&self) -> PyResult<AstId> {
         if let AstNode::Id {
-            id,
+            name,
             start,
             source_id,
         } = &self.0
         {
             Ok(AstId {
-                id: id.to_string(),
+                name: name.to_string(),
                 start: *start,
                 source_id: *source_id,
             })
@@ -189,13 +189,13 @@ impl Ast {
 
     pub fn op(&self) -> PyResult<AstOp> {
         if let AstNode::Op {
-            op,
+            name,
             start,
             source_id,
         } = &self.0
         {
             Ok(AstOp {
-                op: op.to_string(),
+                name: name.to_string(),
                 start: *start,
                 source_id: *source_id,
             })
@@ -427,7 +427,7 @@ pub struct AstSkip();
 
 #[pyclass(get_all)]
 pub struct AstId {
-    id: String,
+    name: String,
     start: usize,
     source_id: usize,
 }
@@ -470,7 +470,7 @@ pub struct AstIndexAssign {
 #[pyclass(get_all)]
 #[derive(Clone)]
 pub struct AstOp {
-    op: String,
+    name: String,
     start: usize,
     source_id: usize,
 }

@@ -30,12 +30,12 @@ pub enum AstNode {
         exp: Box<AstNode>,
     },
     Op {
-        op: String,
+        name: String,
         start: usize,
         source_id: usize,
     },
     Id {
-        id: String,
+        name: String,
         start: usize,
         source_id: usize,
     },

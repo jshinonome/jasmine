@@ -26,12 +26,12 @@ pub struct JParser;
 fn parse_binary_op(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
     match pair.as_rule() {
         Rule::BinaryOp => Ok(AstNode::Op {
-            op: pair.as_str().to_owned(),
+            name: pair.as_str().to_owned(),
             start: pair.as_span().start(),
             source_id,
         }),
         Rule::BinaryId => Ok(AstNode::Op {
-            op: pair.as_str()[1..].to_owned(),
+            name: pair.as_str()[1..].to_owned(),
             start: pair.as_span().start(),
             source_id,
         }),
@@ -107,7 +107,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             }
         }
         Rule::Id => Ok(AstNode::Id {
-            id: pair.as_str().to_owned(),
+            name: pair.as_str().to_owned(),
             start: pair.as_span().start(),
             source_id: source_id,
         }),
@@ -231,7 +231,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                         series_exps.push(AstNode::J(J::Series(s)));
                     }
                 } else if let AstNode::Id {
-                    id: name,
+                    name,
                     start: _,
                     source_id: _,
                 } = &exp
@@ -355,7 +355,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
 fn parse_list(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Rule>> {
     match pair.as_rule() {
         Rule::BinaryOp => Ok(AstNode::Op {
-            op: pair.as_str().to_owned(),
+            name: pair.as_str().to_owned(),
             start: pair.as_span().start(),
             source_id,
         }),
@@ -739,7 +739,7 @@ fn parse_sql(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 sorts = Vec::with_capacity(sort_pairs.len());
                 for sort_pair in sort_pairs {
                     sorts.push(AstNode::Id {
-                        id: sort_pair.as_str().to_owned(),
+                        name: sort_pair.as_str().to_owned(),
                         start: sort_pair.as_span().start(),
                         source_id,
                     })
@@ -782,9 +782,9 @@ fn parse_sql_col_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, Pest
         Rule::SeriesName => {
             let name_node = pair.into_inner().next().unwrap();
             Ok(AstNode::Id {
-                id: name_node.as_str().to_owned(),  /* value */
-                start: name_node.as_span().start(), /* value */
-                source_id,                          /* value */
+                name: name_node.as_str().to_owned(), /* value */
+                start: name_node.as_span().start(),  /* value */
+                source_id,                           /* value */
             })
         }
         _ => parse_exp(pair, source_id),

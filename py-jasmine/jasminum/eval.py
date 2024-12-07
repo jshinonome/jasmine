@@ -36,6 +36,7 @@ from .engine import Engine
 from .exceptions import JasmineEvalException
 from .j import J, JType
 from .j_fn import JFn
+from .util import date_to_num
 
 
 def import_path(path: str, engine: Engine):
@@ -66,12 +67,12 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
             engine.globals[node.id] = res
         return res
     elif isinstance(node, AstId):
-        if node.id in engine.builtins:
-            return engine.builtins[node.id]
-        elif node.id in ctx.locals:
-            return ctx.locals[node.id]
-        elif node.id in engine.globals:
-            return engine.globals[node.id]
+        if node.name in engine.builtins:
+            return engine.builtins[node.name]
+        elif node.name in ctx.locals:
+            return ctx.locals[node.name]
+        elif node.name in engine.globals:
+            return engine.globals[node.name]
         else:
             raise JasmineEvalException(
                 engine.get_trace(
@@ -98,14 +99,14 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
             rhs,
         )
     elif isinstance(node, AstOp):
-        if node.op in engine.builtins:
-            return engine.builtins.get(node.op)
-        elif node.op in engine.globals:
-            return engine.globals.get(node.op)
+        if node.name in engine.builtins:
+            return engine.builtins.get(node.name)
+        elif node.name in engine.globals:
+            return engine.globals.get(node.name)
         else:
             raise JasmineEvalException(
                 engine.get_trace(
-                    node.source_id, node.start, "'%s' is not defined" % node.op
+                    node.source_id, node.start, "'%s' is not defined" % node.name
                 )
             )
     elif isinstance(node, AstFn):
@@ -276,7 +277,7 @@ SQL_FN = {
     "evar": lambda x, y: pl.Expr.ewm_mean(y, alpha=x),
     # fill null
     "fill": 2,
-    "in": 2,
+    "in": pl.Expr.is_in,
     "intersect": 2,
     "like": 2,
     "log": lambda x, y: pl.Expr.log(x, y),
@@ -336,14 +337,82 @@ def eval_sql(
         j = eval_node(sql.from_df, engine, ctx, is_in_fn)
         if j.j_type == JType.DATAFRAME:
             df = j.data.lazy()
+            if len(sql.filters) > 0:
+                for node in sql.filters:
+                    df = df.filter(eval_sql_op(node, engine, ctx, is_in_fn))
         elif j.j_type == JType.PARTED:
+            missing_part_err = JasmineEvalException(
+                "dataframe partitioned by %s requires its partitioned unit condition('==', 'in' or 'between') as its first filter clause"
+                % j.j_type.name
+            )
             # partitioned table
-            pass
+            if len(sql.filters) > 0:
+                first_filter = downcast_ast_node(sql.filters[0])
+                if isinstance(first_filter, AstBinOp):
+                    op = downcast_ast_node(first_filter.op)
+                    lhs = downcast_ast_node(first_filter.lhs)
+                    rhs = eval_node(first_filter.rhs, engine, ctx, is_in_fn)
+                    if not (isinstance(lhs, AstId) and lhs.name == j.data.get_unit()):
+                        raise missing_part_err
+                    if op.name == "==" and rhs.j_type == JType.DATE:
+                        date_num = rhs.date_num()
+                        partitions = j.data.get_partition_paths(date_num, date_num)
+                        if len(partitions) == 0:
+                            partitions = [j.data.get_latest_path()]
+                            df = pl.scan_parquet(partitions, n_rows=0)
+                        else:
+                            df = pl.scan_parquet(partitions)
+                    elif (
+                        op.name == "between"
+                        and rhs.j_type == JType.SERIES
+                        and rhs.data.dtype == pl.Date
+                        and rhs.data.count() == 2
+                        and rhs.data.null_count() == 0
+                    ):
+                        start_date = rhs.data[0]
+                        end_date = rhs.data[1]
+                        partitions = j.data.get_partition_paths(
+                            date_to_num(start_date), date_to_num(end_date)
+                        )
+                        if len(partitions) == 0:
+                            partitions = [j.data.get_latest_path()]
+                            df = pl.scan_parquet(partitions, n_rows=0)
+                        else:
+                            df = pl.scan_parquet(partitions)
+                    elif op.name == "in" and rhs.j_type == JType.DATE:
+                        date_num = date_to_num(rhs.data)
+                        if date_num in j.data.partitions:
+                            df = pl.scan_parquet(
+                                j.data.get_partition_paths_by_date_nums([date_num])
+                            )
+                        else:
+                            df = pl.scan_parquet([j.data.get_latest_path()], n_rows=0)
+                    elif op.name == "in" and (
+                        rhs.j_type == JType.SERIES and rhs.data.dtype == pl.Date
+                    ):
+                        date_nums = []
+                        for date in rhs.data:
+                            if date:
+                                date_num = date_to_num(date)
+                                if date_num in j.data.partitions:
+                                    date_nums.append(date_num)
+                        partitions = j.data.get_partition_paths_by_date_nums(date_nums)
+                        if len(partitions) > 0:
+                            df = pl.scan_parquet(partitions)
+                        else:
+                            df = pl.scan_parquet([j.data.get_latest_path()], n_rows=0)
+                    else:
+                        raise missing_part_err
+                else:
+                    raise missing_part_err
+            else:
+                raise missing_part_err
+
+            if len(sql.filters) > 1:
+                for node in sql.filters[1:]:
+                    df = df.filter(eval_sql_op(node, engine, ctx, is_in_fn))
         else:
             raise JasmineEvalException("'from' requires dataframe, got %s" % j.j_type)
-        if len(sql.filters) > 0:
-            for node in sql.filters:
-                df = df.filter(eval_sql_op(node, engine, ctx, is_in_fn))
 
         groups = []
         if len(sql.groups) > 0:
@@ -428,16 +497,16 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
             expr = expr.to_expr()
         return expr.alias(node.name)
     elif isinstance(node, AstId):
-        if node.id == "i":
+        if node.name == "i":
             return pl.int_range(pl.len(), dtype=pl.UInt32).alias("i")
-        elif node.id in engine.builtins:
-            return engine.builtins[node.id]
-        elif node.id in ctx.locals:
-            return ctx.locals[node.id]
-        elif node.id in engine.globals:
-            return engine.globals[node.id]
+        elif node.name in engine.builtins:
+            return engine.builtins[node.name]
+        elif node.name in ctx.locals:
+            return ctx.locals[node.name]
+        elif node.name in engine.globals:
+            return engine.globals[node.name]
         else:
-            return pl.col(node.id)
+            return pl.col(node.name)
     elif isinstance(node, AstUnaryOp):
         op = downcast_ast_node(node.op)
         exp = eval_sql_op(node.exp, engine, ctx, is_in_fn)
@@ -452,7 +521,8 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
                 exp,
             )
         else:
-            fn_name = get_sql_fn_name(op)
+            # AstOp | AstId
+            fn_name = op.name
             op_fn = get_sql_fn(op, fn_name, 1, engine)
             return eval_sql_fn(op_fn, fn_name, exp)
     elif isinstance(node, AstBinOp):
@@ -471,9 +541,8 @@ def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Ex
                 rhs,
             )
         else:
-            fn_name = get_sql_fn_name(op)
-            op_fn = get_sql_fn(op, fn_name, 2, engine)
-            return eval_sql_fn(op_fn, fn_name, lhs, rhs)
+            op_fn = get_sql_fn(op, op.name, 2, engine)
+            return eval_sql_fn(op_fn, op.name, lhs, rhs)
     else:
         raise JasmineEvalException("not yet implemented for sql - %s" % node)
 
@@ -536,13 +605,6 @@ def eval_sql_fn(fn: Callable, fn_name: str, *args) -> pl.Expr:
                 else:
                     fn_args.append(arg)
             return fn(*fn_args)
-
-
-def get_sql_fn_name(node: AstOp | AstId):
-    if isinstance(node, AstOp):
-        return node.op
-    elif isinstance(node, AstId):
-        return node.id
 
 
 def get_sql_fn(node: AstOp | AstId, fn_name: str, arg_num: int, engine: Engine):

@@ -8,6 +8,7 @@ import polars as pl
 from .ast import JObj
 from .exceptions import JasmineEvalException
 from .j_fn import JFn
+from .util import date_to_num
 
 
 class JType(Enum):
@@ -47,15 +48,34 @@ class JParted:
         self.unit = unit
         self.partitions = partitions
 
-    def __str__(self) -> str:
+    def get_unit(self) -> str:
         match self.unit:
             case 4:
-                unit = "year"
+                return "year"
             case 8:
-                unit = "date"
+                return "date"
             case _:
-                unit = "single"
+                return "single"
+
+    def __str__(self) -> str:
+        unit = self.get_unit()
         return f"partitioned by {unit} @ `{self.path}` - {self.partitions[-3:]}"
+
+    def get_partition_paths(self, start: int, end: int) -> list[str]:
+        paths = []
+        for partition in filter(lambda x: x >= start and x <= end, self.partitions):
+            paths.append(self.path.joinpath(str(partition) + "*"))
+        return paths
+
+    def get_latest_path(self) -> str:
+        return self.path.joinpath(str(self.partitions[-1]) + "*")
+
+    def get_partition_paths_by_date_nums(self, nums: list[int]) -> list[str]:
+        paths = []
+        for num in nums:
+            if num in self.partitions:
+                paths.append(self.path.joinpath(str(num) + "*"))
+        return paths
 
 
 class J:
@@ -130,6 +150,15 @@ class J:
         else:
             raise JasmineEvalException(
                 "requires 'duration' for 'days', got %s" % repr(self.j_type)
+            )
+
+    # -> YYYYMMDD number
+    def date_num(self) -> int:
+        if self.j_type == JType.DATE:
+            return date_to_num(self.data)
+        else:
+            raise JasmineEvalException(
+                "requires 'date' for 'date_num', got %s" % repr(self.j_type)
             )
 
     def days_from_epoch(self) -> int:
