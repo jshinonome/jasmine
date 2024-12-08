@@ -216,7 +216,7 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                     name = nodes.next().unwrap().as_str().to_owned();
                     exp = parse_exp(nodes.next().unwrap(), source_id)?;
                 } else {
-                    name = format!("col{:02}", i);
+                    name = format!("series{:02}", i);
                     exp = parse_exp(node, source_id)?
                 }
                 if let AstNode::J(j) = exp {
@@ -260,7 +260,11 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
                 };
                 Ok(AstNode::J(J::DataFrame(df)))
             } else {
-                Ok(AstNode::Dataframe(series_exps))
+                Ok(AstNode::Dataframe {
+                    exps: series_exps,
+                    start: span.start(),
+                    source_id,
+                })
             }
         }
         Rule::Matrix => {

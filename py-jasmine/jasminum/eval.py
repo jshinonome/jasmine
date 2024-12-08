@@ -112,6 +112,17 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
             )
     elif isinstance(node, AstFn):
         raise JasmineEvalException("not yet implemented")
+    elif isinstance(node, AstDataFrame):
+        df = []
+        for series in node.exps:
+            series = eval_node(series, engine, ctx, is_in_fn).to_series()
+            df.append(series)
+        return J(pl.DataFrame(df))
+    elif isinstance(node, AstSeries):
+        j = eval_node(node.exp, engine, ctx, is_in_fn)
+        series = j.to_series()
+        series = series.rename(node.name)
+        return J(series)
     elif isinstance(node, AstSql):
         return eval_sql(node, engine, ctx, node.source_id, node.start, is_in_fn)
     else:

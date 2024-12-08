@@ -59,7 +59,11 @@ pub enum AstNode {
     },
     Return(Box<AstNode>),
     Raise(Box<AstNode>),
-    Dataframe(Vec<AstNode>),
+    Dataframe {
+        exps: Vec<AstNode>,
+        start: usize,
+        source_id: usize,
+    },
     Matrix(Vec<AstNode>),
     Dict {
         keys: Vec<String>,

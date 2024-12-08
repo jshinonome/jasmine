@@ -209,6 +209,30 @@ class J:
     def tz(self) -> str:
         return self.data.tz()
 
+    def to_series(self) -> pl.Series:
+        match self.j_type:
+            case JType.NONE:
+                return pl.Series("", [None], pl.Null)
+            case JType.INT | JType.FLOAT | JType.DATE:
+                return pl.Series("", [self.data])
+            case JType.SERIES:
+                return self.data
+            case JType.TIME:
+                return pl.Series("", [self.data], pl.Time)
+            case JType.DATETIME | JType.TIMESTAMP:
+                return self.data.as_series()
+            case JType.DURATION:
+                return pl.Series("", [self.data], pl.Duration("ns"))
+            case JType.STRING:
+                return pl.Series("", [self.data])
+            case JType.CAT:
+                return pl.Series("", [self.data], pl.Categorical)
+            case _:
+                # MATRIX | LIST | DICT | DATAFRAME | ERR | FN | MISSING | RETURN | PARTED
+                raise JasmineEvalException(
+                    "not supported to be used as a series: %s" % self.j_type.name
+                )
+
     def to_expr(self) -> pl.Expr:
         match self.j_type:
             case JType.NONE | JType.INT | JType.DATE | JType.FLOAT | JType.SERIES:

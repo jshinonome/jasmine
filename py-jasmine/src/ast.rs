@@ -57,7 +57,7 @@ impl Ast {
             AstNode::Try { .. } => AstType::Try,
             AstNode::Return(_) => AstType::Return,
             AstNode::Raise(_) => AstType::Raise,
-            AstNode::Dataframe(_) => AstType::Dataframe,
+            AstNode::Dataframe { .. } => AstType::Dataframe,
             AstNode::Matrix(_) => AstType::Matrix,
             AstNode::Dict { .. } => AstType::Dict,
             AstNode::List(..) => AstType::List,
@@ -307,9 +307,16 @@ impl Ast {
     }
 
     pub fn dataframe(&self) -> PyResult<AstDataFrame> {
-        if let AstNode::Dataframe(nodes) = &self.0 {
+        if let AstNode::Dataframe {
+            exps,
+            start,
+            source_id,
+        } = &self.0
+        {
             Ok(AstDataFrame {
-                exps: nodes.into_iter().map(|n| Ast(n.clone())).collect(),
+                exps: exps.into_iter().map(|n| Ast(n.clone())).collect(),
+                start: *start,
+                source_id: *source_id,
             })
         } else {
             Err(PyJasmineErr::new_err(format!(
@@ -531,6 +538,8 @@ pub struct AstRaise {
 #[pyclass(get_all)]
 pub struct AstDataFrame {
     exps: Vec<Ast>,
+    start: usize,
+    source_id: usize,
 }
 
 #[pyclass(get_all)]
