@@ -30,14 +30,25 @@ def add(arg1: J, arg2: J) -> J:
         elif arg1.j_type == JType.DURATION and arg2.j_type == JType.DURATION:
             return J(arg1.data + arg2.data, JType.DURATION)
         elif (
-            (arg1.j_type.value <= 2 and arg2.j_type <= 7)
-            or (
-                arg2.j_type in (JType.DATE, JType.TIMESTAMP)
-                and arg1.j_type in (JType.TIME, JType.DURATION)
+            arg1.j_type == JType.STRING or arg1.j_type == JType.CAT
+        ) and arg2.j_type.value <= 11:
+            return J(arg1.data + str(arg2), arg1.j_type)
+        elif arg1.j_type == JType.SERIES and arg2.j_type.value <= 11:
+            if arg2.is_temporal_scalar():
+                return J(arg1.data + arg2.to_series())
+            else:
+                return J(arg1.data + arg2.data)
+        elif (
+            (
+                arg1.j_type == JType.DURATION
+                and arg2.j_type.value >= 3
+                and arg2.j_type <= 6
             )
+            or (arg1.j_type.value <= 10 and arg2.j_type == JType.SERIES)
             or (
-                arg2.j_type == JType.DATETIME
-                and (arg1.j_type in (JType.TIME, JType.DURATION))
+                arg2.j_type == JType.STRING
+                or arg2.j_type == JType.CAT
+                and arg1.j_type.value <= 11
             )
         ):
             return add(arg2, arg1)

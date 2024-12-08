@@ -106,8 +106,19 @@ class J:
 
     def __str__(self) -> str:
         match JType(self.j_type):
-            case JType.INT | JType.FLOAT | JType.SERIES | JType.DATAFRAME:
+            case (
+                JType.NONE
+                | JType.BOOLEAN
+                | JType.INT
+                | JType.FLOAT
+                | JType.SERIES
+                | JType.DATAFRAME
+            ):
                 return f"{self.data}"
+            case JType.STRING:
+                return f'"{self.data}"'
+            case JType.CAT:
+                return f"`{self.data}`"
             case JType.DATE:
                 return self.data.isoformat()
             case JType.TIME:
@@ -250,3 +261,9 @@ class J:
                 raise JasmineEvalException(
                     "not supported j type for sql fn: %s" % self.j_type.name
                 )
+
+    def is_temporal_scalar(self) -> bool:
+        if self.j_type.value >= 3 and self.j_type.value <= 7:
+            return True
+        else:
+            return False
