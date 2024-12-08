@@ -131,6 +131,7 @@ fn parse_case02() {
     qty = [7i16,8,9];
     df0 = df[sym = [`a,`b,`b], col1 = [1, 2, 3], col2 = [1.0, 2.0, 3.0], [4, 5, 6], qty];
     df0 = from t filter {sym==`a`} group {sym} select { sum col1+col2, newCol= col2 };
+    from df0 filter { series2 ~between (2.0, 2.2)};
     count df0
     ";
     let pairs = match JParser::parse(Rule::Program, code) {
@@ -195,6 +196,14 @@ fn parse_case02() {
             "         -> SeriesExp -> RenameSeriesExp",
             "             -> SeriesName",
             "             -> Id",
+            "Exp -> SqlExp",
+            "   -> FromExp -> Id",
+            "   -> FilterExp -> BinarySqlExp",
+            "       -> Id",
+            "       -> BinaryId",
+            "       -> BracketSqlExp",
+            "         -> Decimal",
+            "         -> Decimal",
             "Exp -> UnaryExp",
             "   -> Id",
             "   -> Exp -> Id",

@@ -21,6 +21,7 @@ with contextlib.suppress(ImportError):
         AstSeries,
         AstSkip,
         AstSql,
+        AstSqlBracket,
         AstTry,
         AstUnaryOp,
         AstWhile,
@@ -51,7 +52,8 @@ class AstType(Enum):
     List = 17
     Series = 18
     Sql = 19
-    Skip = 20
+    SqlBracket = 20
+    Skip = 21
 
 
 def downcast_ast_node(node: Ast):
@@ -97,6 +99,8 @@ def downcast_ast_node(node: Ast):
             return node.series()
         case AstType.Sql:
             return node.sql()
+        case AstType.SqlBracket:
+            return node.sql_bracket()
         case AstType.Skip:
             return node.skip()
 
@@ -120,6 +124,7 @@ all = [
     AstSeries,
     AstSkip,
     AstSql,
+    AstSqlBracket,
     AstTry,
     AstUnaryOp,
     AstWhile,

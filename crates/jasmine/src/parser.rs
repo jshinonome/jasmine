@@ -323,8 +323,14 @@ fn parse_exp(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<Ru
             }
         }
         Rule::SqlExp => parse_sql(pair, source_id),
-        Rule::BracketExp | Rule::BracketSqlExp => {
-            Ok(parse_exp(pair.into_inner().next().unwrap(), source_id)?)
+        Rule::BracketExp => Ok(parse_exp(pair.into_inner().next().unwrap(), source_id)?),
+        Rule::BracketSqlExp => {
+            let pairs = pair.into_inner();
+            let mut list = Vec::with_capacity(pairs.len());
+            for pair in pairs {
+                list.push(parse_list(pair, source_id)?)
+            }
+            Ok(AstNode::SqlBracket(list))
         }
         Rule::List => {
             let pairs = pair.into_inner();
@@ -359,11 +365,11 @@ fn parse_list(pair: Pair<Rule>, source_id: usize) -> Result<AstNode, PestError<R
             start: pair.as_span().start(),
             source_id,
         }),
-        Rule::Exp => parse_exp(pair, source_id),
-        _ => Err(raise_error(
-            format!("Unexpected rule in list expression: {:?}", pair.as_str()),
-            pair.as_span(),
-        )),
+        _ => parse_exp(pair, source_id),
+        // _ => Err(raise_error(
+        //     format!("Unexpected rule in list expression: {:?}", pair.as_str()),
+        //     pair.as_span(),
+        // )),
     }
 }
 

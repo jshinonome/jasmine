@@ -22,6 +22,7 @@ from .ast import (
     AstSeries,
     AstSkip,
     AstSql,
+    AstSqlBracket,
     AstTry,
     AstType,
     AstUnaryOp,
@@ -151,6 +152,13 @@ def eval_fn(fn: JFn, engine: Engine, ctx: Context, source_id: int, start: int, *
         raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
 
 
+def is_between(expr: pl.Expr, bound: J | list[pl.Expr]):
+    if isinstance(bound, list):
+        return pl.Expr.is_between(expr, *bound)
+    elif bound.j_type == JType.SERIES and bound.data.count() == 2:
+        return pl.Expr.is_between(expr, pl.lit(bound.data[0]), pl.lit(bound.data[1]))
+
+
 SQL_FN = {
     # operators
     "!=": pl.Expr.ne_missing,
@@ -263,7 +271,7 @@ SQL_FN = {
     "var0": lambda x: pl.Expr.var(x, 0),
     "var1": lambda x: pl.Expr.var(x, 1),
     # binary
-    "between": 2,
+    "between": is_between,
     # bottom k
     "bottom": lambda x, y: pl.Expr.bottom_k(y, x),
     "corr0": lambda x, y: pl.corr(x, y, ddof=0),
@@ -276,7 +284,7 @@ SQL_FN = {
     "estd": lambda x, y: pl.Expr.ewm_std(y, alpha=x),
     "evar": lambda x, y: pl.Expr.ewm_mean(y, alpha=x),
     # fill null
-    "fill": 2,
+    "fill": lambda x, y: pl.Expr.fill_null(y, x),
     "in": pl.Expr.is_in,
     "intersect": 2,
     "like": 2,
@@ -304,10 +312,10 @@ SQL_FN = {
     # search sorted right
     "ssr": 2,
     # top k
-    "top": 2,
+    "top": lambda x, y: pl.Expr.top_k(y, x),
     "union": 2,
-    "wmean": 2,
-    "wsum": 2,
+    "wmean": lambda x, y: pl.Expr.dot(x, y) / pl.Expr.sum(x),
+    "wsum": pl.Expr.dot,
     "over": pl.Expr.over,
     # other functions
     "clip": 3,
@@ -485,12 +493,26 @@ def eval_sql(
         raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
 
 
-def eval_sql_op(node, engine: Engine, ctx: Context, is_in_fn: bool) -> J | pl.Expr:
+def eval_sql_op(
+    node, engine: Engine, ctx: Context, is_in_fn: bool
+) -> J | pl.Expr | list[pl.Expr]:
     if isinstance(node, Ast):
         node = downcast_ast_node(node)
 
     if isinstance(node, JObj):
         return J(node, node.j_type)
+    elif isinstance(node, AstSqlBracket):
+        list = []
+        for ast in node.exps:
+            res = eval_sql_op(downcast_ast_node(ast), engine, ctx, is_in_fn)
+            if isinstance(res, J):
+                list.append(res.to_expr())
+            else:
+                list.append(res)
+        if len(list) == 1:
+            return list[0]
+        else:
+            return list
     elif isinstance(node, AstSeries):
         expr = eval_sql_op(node.exp, engine, ctx, is_in_fn)
         if isinstance(expr, J):
@@ -597,6 +619,12 @@ def eval_sql_fn(fn: Callable, fn_name: str, *args) -> pl.Expr:
                 raise JasmineEvalException(
                     "'$'(cast) requires data type and series expression"
                 )
+        case "between":
+            arg0 = args[0]
+            arg1 = args[1]
+            if isinstance(arg0, J):
+                arg0 = arg0.to_expr()
+            return fn(arg0, arg1)
         case _:
             fn_args = []
             for arg in args:
