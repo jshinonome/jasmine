@@ -33,24 +33,22 @@ def add(arg1: J, arg2: J) -> J:
             arg1.j_type == JType.STRING or arg1.j_type == JType.CAT
         ) and arg2.j_type.value <= 11:
             return J(arg1.data + str(arg2), arg1.j_type)
+        elif (
+            arg2.j_type == JType.STRING
+            or arg2.j_type == JType.CAT
+            and arg1.j_type.value <= 11
+        ):
+            return J(str(arg1) + arg2.data, arg2.j_type)
         elif arg1.j_type == JType.SERIES and arg2.j_type.value <= 11:
             if arg2.is_temporal_scalar():
                 return J(arg1.data + arg2.to_series())
             else:
                 return J(arg1.data + arg2.data)
         elif (
-            (
-                arg1.j_type == JType.DURATION
-                and arg2.j_type.value >= 3
-                and arg2.j_type <= 6
-            )
-            or (arg1.j_type.value <= 10 and arg2.j_type == JType.SERIES)
-            or (
-                arg2.j_type == JType.STRING
-                or arg2.j_type == JType.CAT
-                and arg1.j_type.value <= 11
-            )
-        ):
+            arg1.j_type == JType.DURATION
+            and arg2.j_type.value >= 3
+            and arg2.j_type <= 6
+        ) or (arg1.j_type.value <= 10 and arg2.j_type == JType.SERIES):
             return add(arg2, arg1)
         else:
             raise JasmineEvalException(
@@ -60,11 +58,16 @@ def add(arg1: J, arg2: J) -> J:
             )
 
 
-def rand(size: J, limit: J) -> J:
-    if limit.j_type == JType.INT and size.j_type == JType.INT:
-        return J(pl.Series("", np.random.randint(limit.data, size=size.data)))
-    elif limit.j_type == JType.FLOAT and size.j_type == JType.INT:
-        return J(pl.Series("", limit.data * np.random.rand(size.data)))
+def rand(size: J, base: J) -> J:
+    if size.j_type == JType.INT:
+        if base.j_type == JType.INT:
+            return J(pl.Series("", np.random.randint(base.data, size=size.data)))
+        elif base.j_type == JType.FLOAT:
+            return J(pl.Series("", base.data * np.random.rand(size.data)))
+        elif base.j_type == JType.SERIES:
+            return J(base.data.sample(abs(size.data), with_replacement=size.data > 0))
+        elif base.j_type == JType.DATAFRAME:
+            return J(base.data.sample(abs(size.data), with_replacement=size.data > 0))
     else:
         raise JasmineEvalException(
             "'rand' requires 'int' and 'int|float', got '%s' and '%s'"

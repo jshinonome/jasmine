@@ -77,7 +77,7 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
         else:
             raise JasmineEvalException(
                 engine.get_trace(
-                    node.source_id, node.start, "'%s' is not defined" % node.id
+                    node.source_id, node.start, "'%s' is not defined" % node.name
                 )
             )
     elif isinstance(node, AstUnaryOp):
@@ -474,7 +474,7 @@ def eval_sql(
         descendings = []
         if len(sql.sorts) > 0:
             for sort in sql.sorts:
-                sort = downcast_ast_node(sort).id
+                sort = downcast_ast_node(sort).name
                 if sort.startswith("-"):
                     sorts.append(sort[1:])
                     descendings.append(True)
@@ -576,6 +576,31 @@ def eval_sql_op(
         else:
             op_fn = get_sql_fn(op, op.name, 2, engine)
             return eval_sql_fn(op_fn, op.name, lhs, rhs)
+    elif isinstance(node, AstCall):
+        f = downcast_ast_node(node.f)
+        fn_args = []
+        all_j = True
+        for arg in node.args:
+            fn_arg = eval_sql_op(arg, engine, ctx, is_in_fn)
+            fn_args.append(fn_arg)
+            if not isinstance(fn_arg, J):
+                all_j = False
+        if all_j:
+            fn = eval_node(f, engine, ctx, is_in_fn)
+            return eval_fn(fn, engine, ctx, node.source_id, node.start, *fn_args)
+        else:
+            fn_name = ""
+            if isinstance(f, AstOp) or isinstance(f, AstId):
+                fn_name = f.name
+            else:
+                raise JasmineEvalException(
+                    engine.get_trace(
+                        node.source_id, node.start, "expect built-in sql function name"
+                    )
+                )
+            fn = get_sql_fn(f, fn_name, len(fn_args), engine)
+            return eval_sql_fn(fn, fn_name, *fn_args)
+
     else:
         raise JasmineEvalException("not yet implemented for sql - %s" % node)
 

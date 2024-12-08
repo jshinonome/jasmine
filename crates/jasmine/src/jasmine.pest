@@ -67,7 +67,9 @@ UnaryOperand = _{
 
 Handle = { "h" ~ "[" ~ Exp ~ "]" }
 
-UnaryExp = { UnaryOperand ~ Exp }
+UnaryExp = {
+    UnaryOperand ~ (SqlExp | AssignmentExp | UnaryExp | BinaryExp | Handle | FnCall | Term)
+}
 
 BinaryOperand = _{
     Fn
@@ -154,7 +156,9 @@ SqlOpExp = _{
   | Term
 }
 
-UnarySqlExp     =  { (Id | GlobalId) ~ SqlOpExp }
+UnarySqlExp     =  {
+    (Id | GlobalId) ~ (BinarySqlExp | UnarySqlExp | FnCall | Term)
+}
 BinarySqlExp    =  { BinaryOperand ~ (BinaryOp | BinaryId | "over") ~ SqlOpExp }
 BracketSqlExp   =  { "(" ~ SqlOpExp ~ ("," ~ SqlOpExp)* ~ ","? ~ ")" }
 SeriesName      = @{ Id }
@@ -213,7 +217,7 @@ CJK        =  { HAN | HIRAGANA | KATAKANA | HANGUL | BOPOMOFO }
 Identifier = @{ (ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")*) | (CJK ~ (ASCII_ALPHANUMERIC | CJK | "_")*) }
 Keyword    =  { SqlKeyword | ControlKeyword }
 Id         = @{ (!Keyword ~ Identifier) | (Keyword ~ (ASCII_ALPHANUMERIC | "_")+) }
-GlobalId   = @{ Identifier ~ ("." ~ Identifier)* }
+GlobalId   = @{ Identifier ~ ("." ~ Identifier)+ }
 
 Statement = _{ Exp | "" }
 Program   = _{ SOI ~ (Statement ~ ";")* ~ Statement? ~ EOI }
