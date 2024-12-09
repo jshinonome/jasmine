@@ -18,19 +18,19 @@ jasminum
 
 | name      | format                               |
 | --------- | ------------------------------------ |
-| bool      | true,false                           |
-| int       | 00000                                |
-| float     | 00000.00000, inf, -inf               |
-| date      | YYYY-MM-DD                           |
-| time      | HH:mm:ss.sss                         |
-| datetime  | YYYY-MM-DD[T]HH:mm:ss.sss            |
-| timestamp | YYYY-MM-DD[D]HH:mm:ss.sssssssss      |
-| duration  | 00000[D]HH:mm:ss.sss,1ns,1s,1m,1h,1d |
-| string    | "string"                             |
-| cat       | `` `cat` ``                          |
-| null      | none                                 |
+| BOOLEAN   | true,false                           |
+| INT       | 00000                                |
+| FLOAT     | 00000.00000, inf, -inf               |
+| DATE      | YYYY-MM-DD                           |
+| TIME      | HH:mm:ss.sss                         |
+| DATETIME  | YYYY-MM-DD[T]HH:mm:ss.sss            |
+| TIMESTAMP | YYYY-MM-DD[D]HH:mm:ss.sssssssss      |
+| DURATION  | 00000[D]HH:mm:ss.sss,1ns,1s,1m,1h,1d |
+| STRING    | "string"                             |
+| CAT       | `` `cat` ``                          |
+| NONE      | none                                 |
 
-`datetime` and `timestamp` are with timezone information. To convert a timezone
+`datetime` and `timestamp` are with timezone information. To convert a timezone `nyi`
 
 - `` t ~as `Asia/Hong_Kong` ``
 - `` as(t, `Asia/Hong_Kong`) ``
@@ -38,7 +38,7 @@ jasminum
 ### List(Mixed Data Types)
 
 ```
-l[1, none, `cat]
+l[1, none, `cat`]
 ```
 
 ### Series
@@ -135,10 +135,16 @@ while(condition) {
 ### Function
 
 ```
-fn(param1, param2){
+fn(param1, param2, ...){
   statement1;
   statement2;
 }
+```
+
+### Function Call
+
+```
+fn(arg1, arg2, ...)
 ```
 
 ## Expression
@@ -165,7 +171,7 @@ delete(dataframe, (), (), ())
 ### Assignment
 
 ```
-var1= expression1
+var1 = expression1
 ```
 
 ### Unary Operation
@@ -187,12 +193,12 @@ var2(var1, var3)
 #### Each
 
 ```
-var1 each series1
-var1 each list1
-var1 each dataframe1
+var1 ~each series1
+var1 ~each list1
+var1 ~each dataframe1
 
 // apply each for 1st param
-f2(var1) each var2
+f2(var1) ~each var2
 // apply each for 2nd param
-f2(,var2) each var1
+f2(,var2) ~each var1
 ```
