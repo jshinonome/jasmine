@@ -99,6 +99,13 @@ def eval_node(node, engine: Engine, ctx: Context, is_in_fn=False) -> J:
             lhs,
             rhs,
         )
+    elif isinstance(node, AstCall):
+        f = downcast_ast_node(node.f)
+        fn = eval_node(f, engine, ctx, is_in_fn)
+        fn_args = []
+        for arg in node.args:
+            fn_args.append(eval_node(arg, engine, ctx, is_in_fn))
+        return eval_fn(fn, engine, ctx, node.source_id, node.start, *fn_args)
     elif isinstance(node, AstOp):
         if node.name in engine.builtins:
             return engine.builtins.get(node.name)

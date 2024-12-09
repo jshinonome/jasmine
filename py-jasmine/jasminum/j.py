@@ -267,3 +267,54 @@ class J:
             return True
         else:
             return False
+
+    def to_str(self) -> str:
+        if self.j_type == JType.STRING or self.j_type == JType.CAT:
+            return self.data
+        else:
+            raise JasmineEvalException(
+                "expect 'STRING|CAT', but got %s" % self.j_type.name
+            )
+
+    def to_strs(self) -> list[str]:
+        if self.j_type == JType.STRING or self.j_type == JType.CAT:
+            return [self.data]
+        elif self.j_type == JType.SERIES and self.data.is_empty():
+            return []
+        elif self.j_type == JType.SERIES and (
+            self.data.dtype == pl.String or self.data.dtype == pl.Categorical
+        ):
+            return self.data.to_list()
+        else:
+            raise JasmineEvalException(
+                "expect 'STRING|CAT|STRINGS|CATS', but got %s" % self.j_type.name
+            )
+
+    def to_bool(self) -> bool:
+        if self.j_type == JType.BOOLEAN:
+            return self.data
+        else:
+            raise JasmineEvalException(
+                "expect 'BOOLEAN', but got %s" % self.j_type.name
+            )
+
+    def to_df(self) -> pl.DataFrame:
+        if self.j_type == JType.DATAFRAME:
+            return self.data
+        else:
+            raise JasmineEvalException(
+                "expect 'DATAFRAME', but got %s" % self.j_type.name
+            )
+
+    def assert_types(self, types: list[JType]):
+        if self.j_type not in types:
+            raise JasmineEvalException(
+                "expect '%s', but got %s"
+                % ("|".join(map(lambda x: x.name), types), self.j_type)
+            )
+
+    def assert_type(self, type: JType):
+        if self.j_type == type:
+            raise JasmineEvalException(
+                "expect '%s', but got %s" % (type.name, self.j_type)
+            )

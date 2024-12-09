@@ -6,6 +6,7 @@ import polars as pl
 
 from .ast import print_trace
 from .exceptions import JasmineEvalException
+from .io import wpart
 from .j import J, JParted, JType
 from .j_fn import JFn
 from .operator import add, cast, rand
@@ -27,16 +28,18 @@ class Engine:
         self.register_builtin("?", rand)
         self.register_builtin("$", cast)
         self.register_builtin("load", lambda x: self.load_partitioned_df(x))
+        self.register_builtin("wpart", wpart)
         self.builtins["tz"] = J(
             pl.Series("tz", sorted(list(zoneinfo.available_timezones())))
         )
 
     def register_builtin(self, name: str, fn: Callable) -> None:
+        arg_num = fn.__code__.co_argcount
         self.builtins[name] = JFn(
             fn,
             dict(),
-            list(fn.__code__.co_varnames),
-            fn.__code__.co_argcount,
+            list(fn.__code__.co_varnames[:arg_num]),
+            arg_num,
         )
 
     def get_trace(self, source_id: int, pos: int, msg: str) -> str:
@@ -50,7 +53,7 @@ class Engine:
             raise JasmineEvalException(
                 "'load' requires cat|string, got %s" % path.j_type
             )
-        p = Path(path.data)
+        p = Path(path.data).resolve()
         frames = []
         for df_path in p.iterdir():
             # skip name starts with digit
