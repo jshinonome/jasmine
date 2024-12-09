@@ -25,7 +25,7 @@ tasks:
 
   jasminum:
     cmds:
-      - .venv/bin/jasminum
+      - .venv/bin/jasminum --debug
 
   test-py:
     dir: py-jasmine

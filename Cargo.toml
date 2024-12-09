@@ -18,4 +18,4 @@ inherits = "release"
 lto = true
 
 [workspace.dependencies.polars]
-version = "0.44.2"
+version = "0.45.1"
