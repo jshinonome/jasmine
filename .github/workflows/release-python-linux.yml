@@ -27,7 +27,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest]
+        os: [ubuntu-latest, windows-latest]
         # manylinux aarch64 openssl doesn't work
         # architecture: [x86-64, aarch64]
         architecture: [x86-64]
