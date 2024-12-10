@@ -31,12 +31,12 @@ from .ast import (
     downcast_ast_node,
     parse_source_code,
 )
-from .constant import PL_DATA_TYPE
 from .context import Context
 from .engine import Engine
 from .exceptions import JasmineEvalException
 from .j import J, JType
 from .j_fn import JFn
+from .operator import cast
 from .util import date_to_num
 
 
@@ -512,8 +512,8 @@ def eval_sql(
 
         return J(df.collect())
     except Exception as e:
-        # raise e
-        raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
+        raise e
+        # raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
 
 
 def eval_sql_op(
@@ -617,56 +617,12 @@ def eval_sql_op(
         raise JasmineEvalException("not yet implemented for sql - %s" % node)
 
 
-def eval_sql_cast(type_name: str, expr: pl.Expr):
-    match type_name:
-        case type_name if type_name in PL_DATA_TYPE:
-            return expr.cast(PL_DATA_TYPE(type_name))
-        case "year":
-            return expr.dt.year()
-        case "month":
-            return expr.dt.month()
-        case "month_start":
-            return expr.dt.month_start()
-        case "month_end":
-            return expr.dt.month_end()
-        case "weekday":
-            return expr.dt.weekday()
-        case "day":
-            return expr.dt.day()
-        case "dt":
-            return expr.dt.date()
-        case "hour":
-            return expr.dt.hour()
-        case "minute":
-            return expr.dt.minute()
-        case "second":
-            return expr.dt.second()
-        case "t":
-            return expr.dt.time()
-        case "ms":
-            return expr.dt.millisecond()
-        case "ns":
-            return expr.dt.nanosecond()
-        case _:
-            raise JasmineEvalException("unknown data type %s" % type_name)
-
-
 def eval_sql_fn(fn: Callable, fn_name: str, *args) -> pl.Expr:
     match fn_name:
         case "$":
             j = args[0]
             expr = args[1]
-            if (
-                isinstance(j, J)
-                and (j.j_type == JType.STRING or j.j_type == JType.CAT)
-                and isinstance(expr, pl.Expr)
-            ):
-                datatype = j.data
-                return eval_sql_cast(datatype, expr)
-            else:
-                raise JasmineEvalException(
-                    "'$'(cast) requires data type and series expression"
-                )
+            return cast(j, J(expr))
         case "between":
             arg0 = args[0]
             arg1 = args[1]

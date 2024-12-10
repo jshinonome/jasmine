@@ -33,6 +33,7 @@ class JType(Enum):
     MISSING = 18
     RETURN = 19
     PARTED = 20
+    EXPR = 21
 
 
 class JParted:
@@ -79,7 +80,7 @@ class JParted:
 
 
 class J:
-    data: JObj | date | int | float | pl.Series | pl.DataFrame | JParted
+    data: JObj | date | int | float | pl.Series | pl.DataFrame | JParted | pl.Expr
     j_type: JType
 
     def __init__(self, data, j_type=JType.NONE) -> None:
@@ -101,6 +102,8 @@ class J:
             self.j_type = JType.DATE
         elif isinstance(data, JParted):
             self.j_type = JType.PARTED
+        elif isinstance(data, pl.Expr):
+            self.j_type = JType.EXPR
         else:
             self.j_type = j_type
 
@@ -256,6 +259,8 @@ class J:
                 return pl.lit(pl.Series("", [self.data], pl.Duration("ns")))
             case JType.STRING | JType.CAT:
                 return pl.lit(self.data)
+            case JType.EXPR:
+                return self.data
             case _:
                 # MATRIX | LIST | DICT | DATAFRAME | ERR | FN | MISSING | RETURN | PARTED
                 raise JasmineEvalException(

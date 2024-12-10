@@ -6,7 +6,7 @@ import polars as pl
 
 from .ast import print_trace
 from .exceptions import JasmineEvalException
-from .expr import col
+from .expr import selector
 from .io import wpart
 from .j import J, JParted, JType
 from .j_fn import JFn
@@ -30,7 +30,7 @@ class Engine:
         self.register_builtin("?", rand)
         self.register_builtin("$", cast)
         self.register_builtin("tz", tz)
-        self.register_builtin("col", col)
+        self.register_builtin("selector", selector)
         self.register_builtin("load", lambda x: self.load_partitioned_df(x))
         self.register_builtin("wpart", wpart)
         self.builtins["timezone"] = J(
