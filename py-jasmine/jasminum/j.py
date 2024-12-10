@@ -310,7 +310,7 @@ class J:
         if self.j_type not in types:
             raise JasmineEvalException(
                 "expect '%s', but got %s"
-                % ("|".join(map(lambda x: x.name), types), self.j_type)
+                % ("|".join(map(lambda x: x.name, types)), self.j_type)
             )
 
     def assert_type(self, type: JType):

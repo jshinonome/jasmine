@@ -6,10 +6,12 @@ import polars as pl
 
 from .ast import print_trace
 from .exceptions import JasmineEvalException
+from .expr import col
 from .io import wpart
 from .j import J, JParted, JType
 from .j_fn import JFn
 from .operator import add, cast, rand
+from .temporal import tz
 
 
 class Engine:
@@ -27,10 +29,12 @@ class Engine:
         self.register_builtin("+", add)
         self.register_builtin("?", rand)
         self.register_builtin("$", cast)
+        self.register_builtin("tz", tz)
+        self.register_builtin("col", col)
         self.register_builtin("load", lambda x: self.load_partitioned_df(x))
         self.register_builtin("wpart", wpart)
-        self.builtins["tz"] = J(
-            pl.Series("tz", sorted(list(zoneinfo.available_timezones())))
+        self.builtins["timezone"] = J(
+            pl.Series("timezone", sorted(list(zoneinfo.available_timezones())))
         )
 
     def register_builtin(self, name: str, fn: Callable) -> None:

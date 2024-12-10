@@ -331,6 +331,7 @@ SQL_FN = {
     "ssr": 2,
     # top k
     "top": lambda x, y: pl.Expr.top_k(y, x),
+    "tz": lambda x, y: x.dt.convert_time_zone(y),
     "union": 2,
     "wmean": lambda x, y: pl.Expr.dot(x, y) / pl.Expr.sum(x),
     "wsum": pl.Expr.dot,
@@ -448,7 +449,10 @@ def eval_sql(
         ops = []
         if len(sql.ops) > 0:
             for node in sql.ops:
-                ops.append(eval_sql_op(node, engine, ctx, is_in_fn))
+                expr = eval_sql_op(node, engine, ctx, is_in_fn)
+                if isinstance(expr, J):
+                    expr = expr.to_expr()
+                ops.append(expr)
 
         if len(groups) > 0:
             if sql.op == "select":
@@ -508,6 +512,7 @@ def eval_sql(
 
         return J(df.collect())
     except Exception as e:
+        # raise e
         raise JasmineEvalException(engine.get_trace(source_id, start, str(e)))
 
 
@@ -668,6 +673,14 @@ def eval_sql_fn(fn: Callable, fn_name: str, *args) -> pl.Expr:
             if isinstance(arg0, J):
                 arg0 = arg0.to_expr()
             return fn(arg0, arg1)
+        case "tz":
+            arg0 = args[0]
+            arg1 = args[1]
+            if isinstance(arg1, J):
+                arg1 = arg1.to_str()
+                return fn(arg0, arg1)
+            else:
+                raise JasmineEvalException("'tz' requires 'STRING|CAT' as timezone")
         case _:
             fn_args = []
             for arg in args:

@@ -88,14 +88,14 @@ impl JObj {
             .unwrap();
 
         match &self.j {
-            J::Datetime { ms, timezone } => Ok(JObj {
+            J::Datetime { ms, timezone: _ } => Ok(JObj {
                 j: J::Datetime {
                     ms: *ms,
                     timezone: timezone.to_string(),
                 },
                 j_type: self.j_type,
             }),
-            J::Timestamp { ns, timezone } => Ok(JObj {
+            J::Timestamp { ns, timezone: _ } => Ok(JObj {
                 j: J::Timestamp {
                     ns: *ns,
                     timezone: timezone.to_string(),

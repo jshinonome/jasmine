@@ -32,8 +32,8 @@ jasminum
 
 `datetime` and `timestamp` are with timezone information. To convert a timezone `nyi`
 
-- `` t ~as `Asia/Hong_Kong` ``
-- `` as(t, `Asia/Hong_Kong`) ``
+- `` t ~tz `Asia/Hong_Kong` ``
+- `` tz(t, `Asia/Hong_Kong`) ``
 
 ### List(Mixed Data Types)
 
